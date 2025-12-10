@@ -1,0 +1,43 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+
+  date        String?     // 'YYYY-MM-DD'
+  // 跨日任务：开始/结束日期（闭区间），格式 'YYYY-MM-DD'
+  rangeStart  String?
+  rangeEnd    String?
+  allDay      Boolean     @default(false)
+  startTime   String?     // 'HH:mm'
+  endTime     String?     // 'HH:mm'
+
+  status      String      @default("pending") // pending | done
+  quadrant    Quadrant    @default(IN)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([date])
+  @@index([rangeStart])
+  @@index([rangeEnd])
+}
+
+// 任务四象限
+enum Quadrant {
+  IU // 重要紧急
+  IN // 重要不紧急
+  NU // 不重要紧急
+  NN // 不重要不紧急
+}
