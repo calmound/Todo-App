@@ -23,7 +23,10 @@ WORKDIR /app
 COPY --from=backend-build /app/backend/dist ./backend/dist
 COPY --from=backend-build /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-build /app/backend/package*.json ./backend/
-COPY --from=backend-build /app/backend/prisma ./backend/prisma
+# Only copy Prisma schema and migrations (avoid local .db)
+RUN mkdir -p ./backend/prisma
+COPY --from=backend-build /app/backend/prisma/schema.prisma ./backend/prisma/schema.prisma
+COPY --from=backend-build /app/backend/prisma/migrations ./backend/prisma/migrations
 
 # Copy frontend build
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist

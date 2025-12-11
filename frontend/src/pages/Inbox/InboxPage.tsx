@@ -5,12 +5,42 @@ import dayjs from 'dayjs';
 import type { Task, CreateTaskInput } from '../../types/task';
 import { tasksApi } from '../../api/tasks';
 import { TaskItem } from '../../components/TaskItem/TaskItem';
-// Removed drawer usage; use right panel instead
+// Use right-side panel instead of drawer
+import { useRightPanel } from '../../components/RightPanel/RightPanelContext';
 import { QuickInput } from '../../components/QuickInput/QuickInput';
 import { TaskGroup } from '../../components/TaskGroup/TaskGroup';
-import { useRightPanel } from '../../components/RightPanel/RightPanelContext';
 
-export function AllPage() {
+const quadWeight = (q?: Task['quadrant']) => {
+  switch (q) {
+    case 'IU':
+      return 0; // 最重要最紧急
+    case 'IN':
+      return 1;
+    case 'NU':
+      return 2;
+    case 'NN':
+    default:
+      return 3;
+  }
+};
+
+const sortTasks = (a: Task, b: Task) => {
+  const aw = a.status === 'done' ? 1 : 0;
+  const bw = b.status === 'done' ? 1 : 0;
+  if (aw !== bw) return aw - bw; // pending first
+  const aq = quadWeight(a.quadrant);
+  const bq = quadWeight(b.quadrant);
+  if (aq !== bq) return aq - bq; // quadrant priority
+  // Then by date/time if available
+  const ad = a.date || a.rangeStart || '';
+  const bd = b.date || b.rangeStart || '';
+  if (ad !== bd) return ad.localeCompare(bd);
+  const at = a.startTime || '';
+  const bt = b.startTime || '';
+  return at.localeCompare(bt);
+};
+
+export function InboxPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const rightPanel = useRightPanel();
@@ -32,33 +62,24 @@ export function AllPage() {
   }, []);
 
   const handleToggle = async (id: number) => {
-    console.log('[AllPage DEBUG] handleToggle called with id:', id);
     const task = tasks.find((t) => t.id === id);
-    if (!task) {
-      console.log('[AllPage DEBUG] Task not found');
-      return;
-    }
+    if (!task) return;
 
     const newStatus = task.status === 'done' ? 'pending' : 'done';
-    console.log('[AllPage DEBUG] Toggle status from', task.status, 'to', newStatus);
 
     // 乐观更新：立即更新本地状态
     setTasks((prevTasks) =>
       prevTasks.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
     );
-    console.log('[AllPage DEBUG] Local state updated optimistically');
 
     try {
-      console.log('[AllPage DEBUG] Sending PATCH request...');
       await tasksApi.patchTask(id, { status: newStatus });
-      console.log('[AllPage DEBUG] PATCH request successful');
     } catch (error) {
       console.error('Failed to toggle task:', error);
       // 如果失败，回滚状态
       setTasks((prevTasks) =>
         prevTasks.map((t) => (t.id === id ? { ...t, status: task.status } : t))
       );
-      console.log('[AllPage DEBUG] State rolled back due to error');
     }
   };
 
@@ -91,7 +112,9 @@ export function AllPage() {
     });
   };
 
-  // New task handled via QuickInput; no separate drawer/panel for creation
+  const handleNewTask = () => {
+    // Creation handled by QuickInput; no drawer needed
+  };
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
@@ -127,48 +150,6 @@ export function AllPage() {
     });
   };
 
-  const today = dayjs().startOf('day');
-  const sevenDaysAgo = dayjs().subtract(7, 'day').startOf('day');
-
-  const quadWeight = (q?: Task['quadrant']) => {
-    switch (q) {
-      case 'IU': return 0;
-      case 'IN': return 1;
-      case 'NU': return 2;
-      default: return 3;
-    }
-  };
-
-  const sortTasks = (a: Task, b: Task) => {
-    const aw = a.status === 'done' ? 1 : 0;
-    const bw = b.status === 'done' ? 1 : 0;
-    if (aw !== bw) return aw - bw;
-    const aq = quadWeight(a.quadrant);
-    const bq = quadWeight(b.quadrant);
-    if (aq !== bq) return aq - bq;
-    const ad = a.date || a.rangeStart || '';
-    const bd = b.date || b.rangeStart || '';
-    if (ad !== bd) return ad.localeCompare(bd);
-    const at = a.startTime || '';
-    const bt = b.startTime || '';
-    return at.localeCompare(bt);
-  };
-
-  // 按日期分组（只显示待处理的任务）
-  const overdueTasks = tasks.filter(
-    (t) => t.status === 'pending' && t.date && dayjs(t.date).isBefore(today, 'day')
-  ).sort(sortTasks);
-
-  const todayTasks = tasks.filter(
-    (t) => t.status === 'pending' && t.date && dayjs(t.date).isSame(today, 'day')
-  ).sort(sortTasks);
-
-  const futureTasks = tasks.filter(
-    (t) => t.status === 'pending' && (!t.date || dayjs(t.date).isAfter(today, 'day'))
-  ).sort(sortTasks);
-
-  const completedTasks = tasks.filter((t) => t.status === 'done').sort(sortTasks);
-
   if (loading) {
     return (
       <Center h={400}>
@@ -177,26 +158,35 @@ export function AllPage() {
     );
   }
 
+  const today = dayjs().startOf('day');
+
+  // 分组任务
+  const overdueTasks = tasks.filter(
+    (t) => t.status === 'pending' && t.date && dayjs(t.date).isBefore(today, 'day')
+  ).sort(sortTasks);
+
+  const pendingTasks = tasks.filter(
+    (t) => t.status === 'pending' && (!t.date || !dayjs(t.date).isBefore(today, 'day'))
+  ).sort(sortTasks);
+
+  const completedTasks = tasks.filter((t) => t.status === 'done').sort(sortTasks);
+
   return (
-    <div style={{ paddingRight: 16 }}>
+    <div>
       <Stack gap="md">
         <div>
-          <Title order={2} mb="md">任务</Title>
-          <QuickInput onAdd={handleQuickAdd} placeholder='添加任务至"任务"' defaultDate={dayjs().format('YYYY-MM-DD')} />
+          <QuickInput onAdd={handleQuickAdd} placeholder='添加任务至"收集箱"' defaultDate={dayjs().format('YYYY-MM-DD')} />
         </div>
 
         {tasks.length === 0 ? (
           <Center h={200}>
-            <Text c="dimmed">未找到任务</Text>
+            <Text c="dimmed">暂无任务</Text>
           </Center>
         ) : (
-          <Stack gap="md">
-            {todayTasks.length > 0 && (
-              <TaskGroup
-                title="今天"
-                count={todayTasks.length}
-              >
-                {todayTasks.map((task) => (
+          <Stack gap="lg">
+            {pendingTasks.length > 0 && (
+              <Stack gap="sm">
+                {pendingTasks.map((task) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -204,10 +194,9 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onClick={handleTaskClick}
                     showMeta={true}
-                    compact={true}
                   />
                 ))}
-              </TaskGroup>
+              </Stack>
             )}
 
             {overdueTasks.length > 0 && (
@@ -228,26 +217,6 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onClick={handleTaskClick}
                     showMeta={true}
-                    compact={true}
-                  />
-                ))}
-              </TaskGroup>
-            )}
-
-            {futureTasks.length > 0 && (
-              <TaskGroup
-                title="未来"
-                count={futureTasks.length}
-              >
-                {futureTasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onDelete={handleDelete}
-                    onClick={handleTaskClick}
-                    showMeta={true}
-                    compact={true}
                   />
                 ))}
               </TaskGroup>
@@ -267,7 +236,6 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onClick={handleTaskClick}
                     showMeta={true}
-                    compact={true}
                   />
                 ))}
               </TaskGroup>

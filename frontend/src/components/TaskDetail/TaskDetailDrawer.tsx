@@ -129,6 +129,7 @@ export function TaskDetailDrawer({ opened, onClose, task, onSave, onDelete }: Ta
                 label="开始日期"
                 placeholder="选择开始"
                 popoverProps={{ withinPortal: true, zIndex: 20000 }}
+                locale="zh-cn"
                 value={form.values.rangeStart ? new Date(form.values.rangeStart) : null}
                 onChange={(date) => {
                   form.setFieldValue('rangeStart', date ? dayjs(date).format('YYYY-MM-DD') : '');
@@ -138,6 +139,7 @@ export function TaskDetailDrawer({ opened, onClose, task, onSave, onDelete }: Ta
                 label="结束日期"
                 placeholder="选择结束"
                 popoverProps={{ withinPortal: true, zIndex: 20000 }}
+                locale="zh-cn"
                 value={form.values.rangeEnd ? new Date(form.values.rangeEnd) : null}
                 onChange={(date) => {
                   form.setFieldValue('rangeEnd', date ? dayjs(date).format('YYYY-MM-DD') : '');
@@ -149,6 +151,7 @@ export function TaskDetailDrawer({ opened, onClose, task, onSave, onDelete }: Ta
               label="日期"
               placeholder="选择日期"
               popoverProps={{ withinPortal: true, zIndex: 20000 }}
+              locale="zh-cn"
               value={form.values.date ? new Date(form.values.date) : null}
               onChange={(date) => {
                 form.setFieldValue('date', date ? dayjs(date).format('YYYY-MM-DD') : '');
@@ -169,7 +172,8 @@ export function TaskDetailDrawer({ opened, onClose, task, onSave, onDelete }: Ta
             }}
           />
 
-          {!form.values.allDay && !form.values.isRange && (
+          {/* 单日模块去掉开始/结束时间，仅在“周期”时显示时间 */}
+          {!form.values.allDay && form.values.isRange && (
             <Group grow>
               <TimeInput
                 label="开始时间"

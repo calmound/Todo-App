@@ -1,25 +1,22 @@
 import { AppShell, Burger, Group, NavLink } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  IconCalendar,
-  IconCalendarWeek,
-  IconListCheck,
-  IconSun,
-} from '@tabler/icons-react';
+import { IconCalendar, IconListCheck } from '@tabler/icons-react';
+import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
+import { TaskDetailPanel } from '../components/TaskDetail/TaskDetailPanel';
 
-export function AppLayout() {
+function LayoutInner() {
   const [opened, { toggle }] = useDisclosure();
   const navigate = useNavigate();
   const location = useLocation();
+  const rightPanel = useRightPanel();
 
   const navItems = [
-    { path: '/today', label: '今日', icon: IconSun },
-    { path: '/week', label: '本周', icon: IconCalendarWeek },
-    { path: '/all', label: '全部任务', icon: IconListCheck },
+    { path: '/all', label: '任务', icon: IconListCheck },
     { path: '/calendar', label: '日历', icon: IconCalendar },
   ];
 
+  const panelWidth = 420;
   return (
     <AppShell
       header={{ height: 60 }}
@@ -53,9 +50,42 @@ export function AppLayout() {
         ))}
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main
+        style={{
+          paddingRight: rightPanel.opened ? panelWidth : 0,
+          transition: 'padding-right 220ms cubic-bezier(.4,0,.2,1)'
+        }}
+      >
         <Outlet />
       </AppShell.Main>
+
+      {/* Fixed right panel container to avoid layout shifts across pages */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 60,
+          right: 0,
+          bottom: 0,
+          width: panelWidth,
+          transform: rightPanel.opened ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 220ms cubic-bezier(.4,0,.2,1)',
+          background: '#fff',
+          borderLeft: '1px solid #e9ecef',
+          zIndex: 1000,
+          overflow: 'hidden'
+        }}
+      >
+       
+        <TaskDetailPanel />
+      </div>
     </AppShell>
+  );
+}
+
+export function AppLayout() {
+  return (
+    <RightPanelProvider>
+      <LayoutInner />
+    </RightPanelProvider>
   );
 }
