@@ -1,8 +1,9 @@
-import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button } from '@mantine/core';
+import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button, ActionIcon } from '@mantine/core';
 import { DatePickerInput, TimeInput } from '@mantine/dates';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useRightPanel } from '../RightPanel/RightPanelContext';
+import { IconX } from '@tabler/icons-react';
 
 function useDebouncedCallback<T extends any[]>(fn: (...args: T) => void, delay = 400) {
   const [t, setT] = useState<number | undefined>();
@@ -45,8 +46,9 @@ export function TaskDetailPanel() {
         <Group justify="space-between">
           <div style={{ fontWeight: 600 }}>编辑任务</div>
           <Group>
-            <Button variant="subtle" color="gray" onClick={close}>关闭</Button>
-            <Button variant="outline" color="red" onClick={deleteTask}>删除</Button>
+            <ActionIcon aria-label="关闭" variant="subtle" color="gray" radius="xl" onClick={close}>
+              <IconX size={18} />
+            </ActionIcon>
           </Group>
         </Group>
 
@@ -76,10 +78,12 @@ export function TaskDetailPanel() {
             setIsRange(toRange);
             if (toRange) {
               const d = task?.date || dayjs().format('YYYY-MM-DD');
-              patchTask({ date: undefined, rangeStart: d, rangeEnd: d });
+              // 切到周期：清空单日日期（null），设置起止为同一天
+              patchTask({ date: null, rangeStart: d, rangeEnd: d });
             } else {
               const d = task?.rangeStart || dayjs().format('YYYY-MM-DD');
-              patchTask({ date: d, rangeStart: undefined, rangeEnd: undefined });
+              // 切到单日：设置单日日期，并清空起止（null）
+              patchTask({ date: d, rangeStart: null, rangeEnd: null });
             }
           }}
         />
@@ -92,7 +96,7 @@ export function TaskDetailPanel() {
               popoverProps={{ withinPortal: true, zIndex: 20000 }}
               locale="zh-cn"
               value={task?.rangeStart ? new Date(task.rangeStart) : null}
-              onChange={(date) => patchTask({ rangeStart: date ? dayjs(date).format('YYYY-MM-DD') : undefined })}
+              onChange={(date) => patchTask({ rangeStart: date ? dayjs(date).format('YYYY-MM-DD') : null })}
             />
             <DatePickerInput
               label="结束日期"
@@ -100,7 +104,7 @@ export function TaskDetailPanel() {
               popoverProps={{ withinPortal: true, zIndex: 20000 }}
               locale="zh-cn"
               value={task?.rangeEnd ? new Date(task.rangeEnd) : null}
-              onChange={(date) => patchTask({ rangeEnd: date ? dayjs(date).format('YYYY-MM-DD') : undefined })}
+              onChange={(date) => patchTask({ rangeEnd: date ? dayjs(date).format('YYYY-MM-DD') : null })}
             />
           </Group>
         ) : (
@@ -110,46 +114,13 @@ export function TaskDetailPanel() {
             popoverProps={{ withinPortal: true, zIndex: 20000 }}
             locale="zh-cn"
             value={task?.date ? new Date(task.date) : null}
-            onChange={(date) => patchTask({ date: date ? dayjs(date).format('YYYY-MM-DD') : undefined })}
+            onChange={(date) => patchTask({ date: date ? dayjs(date).format('YYYY-MM-DD') : null })}
           />
         )}
 
-        <Select
-          label="类型"
-          data={[
-            { value: 'timed', label: '定时' },
-            { value: 'allDay', label: '全天' },
-          ]}
-          value={task?.allDay ? 'allDay' : 'timed'}
-          comboboxProps={{ zIndex: 20000, withinPortal: true }}
-          onChange={(value) => patchTask({ allDay: value === 'allDay' })}
-        />
+        {/* 不显示时间输入，周期任务也不需要开始/结束时间 */}
 
-        {!task?.allDay && isRange && (
-          <Group grow>
-            <TimeInput
-              label="开始时间"
-              value={task?.startTime || ''}
-              onChange={(e) => patchTask({ startTime: e.currentTarget.value })}
-            />
-            <TimeInput
-              label="结束时间"
-              value={task?.endTime || ''}
-              onChange={(e) => patchTask({ endTime: e.currentTarget.value })}
-            />
-          </Group>
-        )}
-
-        <Select
-          label="状态"
-          data={[
-            { value: 'pending', label: '待办' },
-            { value: 'done', label: '已完成' },
-          ]}
-          value={task?.status || 'pending'}
-          comboboxProps={{ zIndex: 20000, withinPortal: true }}
-          onChange={(value) => patchTask({ status: (value as 'pending' | 'done') })}
-        />
+        {/* 任务状态在列表用复选框操作，详情不显示状态选择 */}
 
         <Select
           label="四象限"
@@ -163,6 +134,11 @@ export function TaskDetailPanel() {
           comboboxProps={{ zIndex: 20000, withinPortal: true }}
           onChange={(value) => patchTask({ quadrant: value as any })}
         />
+
+        {/* Danger zone at bottom */}
+        <div style={{ position: 'sticky', bottom: 0, background: '#fff', paddingTop: 8, paddingBottom: 8 }}>
+          <Button color="red" variant="light" fullWidth onClick={deleteTask}>删除任务</Button>
+        </div>
         </>
         )}
       </Stack>

@@ -1,5 +1,6 @@
 import { AppShell, Burger, Group, NavLink } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
+import { useMantineTheme } from '@mantine/core';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { IconCalendar, IconListCheck } from '@tabler/icons-react';
 import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
@@ -10,6 +11,8 @@ function LayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const rightPanel = useRightPanel();
+  const theme = useMantineTheme();
+  const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
   const navItems = [
     { path: '/all', label: '任务', icon: IconListCheck },
@@ -52,21 +55,28 @@ function LayoutInner() {
 
       <AppShell.Main
         style={{
-          paddingRight: rightPanel.opened ? panelWidth : 0,
+          paddingRight: rightPanel.opened && !isMobile ? panelWidth : 0,
           transition: 'padding-right 220ms cubic-bezier(.4,0,.2,1)'
         }}
       >
         <Outlet />
       </AppShell.Main>
 
+      {/* Mobile overlay backdrop when panel open */}
+      {isMobile && rightPanel.opened && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 999 }}
+        />
+      )}
+
       {/* Fixed right panel container to avoid layout shifts across pages */}
       <div
         style={{
           position: 'fixed',
-          top: 60,
+          top: isMobile ? 0 : 60,
           right: 0,
           bottom: 0,
-          width: panelWidth,
+          width: isMobile ? '100%' : panelWidth,
           transform: rightPanel.opened ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 220ms cubic-bezier(.4,0,.2,1)',
           background: '#fff',
@@ -75,7 +85,7 @@ function LayoutInner() {
           overflow: 'hidden'
         }}
       >
-       
+        
         <TaskDetailPanel />
       </div>
     </AppShell>

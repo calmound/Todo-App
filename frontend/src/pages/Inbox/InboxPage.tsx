@@ -129,18 +129,15 @@ export function InboxPage() {
     modals.openConfirmModal({
       title: '顺延任务',
       children: (
-        <Text size="sm">
-          确定要将 {overdueTasks.length} 个过期任务的日期顺延到今天吗？
-        </Text>
+        <Text size="sm">确定要将 {overdueTasks.length} 个过期任务的日期顺延到今天吗？</Text>
       ),
       labels: { confirm: '确定', cancel: '取消' },
+      confirmProps: { color: 'blue' },
       onConfirm: async () => {
         const today = dayjs().format('YYYY-MM-DD');
         try {
           await Promise.all(
-            overdueTasks.map((task) =>
-              tasksApi.updateTask(task.id, { date: today })
-            )
+            overdueTasks.map((task) => tasksApi.patchTask(task.id, { date: today }))
           );
           fetchTasks();
         } catch (error) {

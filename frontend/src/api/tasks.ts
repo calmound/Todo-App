@@ -1,6 +1,9 @@
 import type { Task, CreateTaskInput, UpdateTaskInput } from '../types/task';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+// In production, default to same-origin '/api' to avoid localhost/CORS issues.
+// In development (vite dev server), fallback to http://localhost:3000/api.
+const API_BASE_URL: string =
+  (import.meta as any).env.VITE_API_BASE_URL || ((import.meta as any).env.DEV ? 'http://localhost:3000/api' : '/api');
 
 export const tasksApi = {
   // Get tasks by date range

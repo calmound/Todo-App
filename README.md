@@ -119,29 +119,108 @@ npm install
 npm run dev
 ```
 
-### Docker 部署
+### 打包与部署（Docker）
 
-1. **使用 Docker Compose 启动**
+本项目内置多阶段 `Dockerfile`，镜像包含后端 API 与已构建的前端静态资源。容器启动时会自动执行 Prisma 迁移（`prisma migrate deploy`），仅创建/更新表结构，不携带本地测试数据。
 
-```bash
-docker-compose up -d
-```
+重要约定：
+- 镜像不包含本地 `dev.db`，只复制 `schema.prisma` 与 `migrations/`，并在容器内使用 `DATABASE_URL=file:/app/data/dev.db`。
+- 持久化数据目录为容器内 `/app/data`，请务必在部署时挂载卷或指向外部数据库。
 
-2. **访问应用**
-
-浏览器打开 http://localhost:3000
-
-应用会在一个容器内运行（前端 + 后端 + 数据库）。
-
-3. **停止应用**
+1) 本地构建镜像
 
 ```bash
-docker-compose down
+# 根目录
+docker build -t todo-app:latest .
 ```
+
+2) 直接运行容器（使用宿主机目录持久化）
+
+```bash
+mkdir -p ./data
+docker run -d \
+  --name todo-app \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -e DATABASE_URL=file:/app/data/dev.db \
+  -e PORT=3000 \
+  todo-app:latest
+
+# 访问 http://localhost:3000
+```
+
+3) 使用 Compose（开发/单机）
+
+```bash
+# 构建并启动
+npm run docker:build
+npm run docker:up
+
+# 查看日志 / 停止
+npm run docker:logs
+npm run docker:down
+```
+
+`docker-compose.yml` 默认把宿主 `./data` 挂到容器 `/app/data`，数据随主机目录持久化。
+
+4) 生产部署（推荐命名卷）
+
+创建 `docker-compose.prod.yml`：
+
+```yaml
+version: '3.8'
+services:
+  app:
+    image: todo-app:latest # 或你的镜像仓库地址
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - PORT=3000
+    volumes:
+      - db-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  db-data: {}
+```
+
+启动：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+5) 使用外部数据库（PostgreSQL/MySQL）
+
+将 `DATABASE_URL` 指向生产库，例如：
+
+```bash
+# PostgreSQL 示例
+export DATABASE_URL="postgresql://user:pass@host:5432/dbname?schema=public"
+
+docker run -d \
+  --name todo-app \
+  -p 3000:3000 \
+  -e DATABASE_URL="$DATABASE_URL" \
+  -e PORT=3000 \
+  todo-app:latest
+```
+
+容器启动会执行 `prisma migrate deploy`，按迁移更新线上表结构。前端默认在生产环境下请求同源 `/api`，无需额外配置；若前后端分离部署，请在前端构建时设置 `VITE_API_BASE_URL` 指向后台地址。
+
+前端 API 基地址策略：
+- 生产（默认）：`/api`（同域路径）
+- 开发（Vite）：`http://localhost:3000/api`
+- 自定义：构建时提供 `VITE_API_BASE_URL`（例如 `https://api.example.com`）
 
 ### 数据库
 
-应用使用 SQLite 存储数据。开发环境数据库文件位于 `backend/prisma/dev.db`；Docker 部署时，数据库保存在 `./data` 卷中。
+- 开发：`backend/prisma/dev.db`
+- Docker：容器 `/app/data/dev.db`（请挂载 `./data:/app/data` 或使用命名卷 `db-data:/app/data`）
+- 生产：建议改用外部数据库（Postgres/MySQL），并将 `DATABASE_URL` 指向生产库。
+
+注意：镜像不包含任何本地数据文件；每次部署以线上库为准。
 
 ## API 接口
 

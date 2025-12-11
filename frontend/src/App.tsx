@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import { MantineProvider } from '@mantine/core';
+import { ModalsProvider } from '@mantine/modals';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -13,16 +14,18 @@ function App() {
   dayjs.locale('zh-cn');
   return (
     <MantineProvider defaultColorScheme="light">
-      <Router>
-        <Routes>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<Navigate to="/all" replace />} />
-            <Route path="inbox" element={<InboxPage />} />
-            <Route path="all" element={<AllPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-          </Route>
-        </Routes>
-      </Router>
+      <ModalsProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<AppLayout />}>
+              <Route index element={<Navigate to="/all" replace />} />
+              <Route path="inbox" element={<InboxPage />} />
+              <Route path="all" element={<AllPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
+            </Route>
+          </Routes>
+        </Router>
+      </ModalsProvider>
     </MantineProvider>
   );
 }

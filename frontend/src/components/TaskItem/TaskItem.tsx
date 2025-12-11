@@ -109,19 +109,24 @@ export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, 
                 }}
               />
             </div>
-            <Text
-              size="sm"
-              fw={task.status === 'done' ? 400 : 500}
-              c={task.status === 'done' ? 'dimmed' : undefined}
-              style={{
-                textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {task.title}
-            </Text>
+            <Group gap={6} style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
+              <Text
+                size="sm"
+                fw={task.status === 'done' ? 400 : 500}
+                c={task.status === 'done' ? 'dimmed' : undefined}
+                style={{
+                  textDecoration: task.status === 'done' ? 'line-through' : 'none',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {task.title}
+              </Text>
+              {task.rangeStart && task.rangeEnd && (
+                <Badge size="xs" color="grape" variant="light">周期</Badge>
+              )}
+            </Group>
           </Group>
           <Group gap={6} wrap="nowrap">
             {showMeta && (
