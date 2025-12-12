@@ -17,9 +17,10 @@ export function QuickInput({ onAdd, placeholder = '添加任务', defaultDate }:
     defaultDate ? dayjs(defaultDate).toDate() : new Date()
   );
   const [datePickerOpened, setDatePickerOpened] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && value.trim()) {
+    if (e.key === 'Enter' && value.trim() && !isComposing) {
       const dateStr = dayjs(selectedDate).format('YYYY-MM-DD');
       onAdd(value.trim(), dateStr);
       setValue('');
@@ -55,6 +56,8 @@ export function QuickInput({ onAdd, placeholder = '添加任务', defaultDate }:
         value={value}
         onChange={(e) => setValue(e.currentTarget.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
         placeholder={placeholder}
         variant="unstyled"
         style={{ flex: 1 }}

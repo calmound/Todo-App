@@ -18,6 +18,7 @@ export function CalendarPage() {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -101,6 +102,7 @@ export function CalendarPage() {
   };
 
   const handleTaskClick = (task: Task) => {
+    setSelectedTaskId(task.id);
     rightPanel.openTask(task, {
       onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
       onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
@@ -111,8 +113,15 @@ export function CalendarPage() {
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      await tasksApi.createTask({ title, date });
-      fetchTasks();
+      const newTask = await tasksApi.createTask({ title, date });
+      // 乐观更新：直接添加新任务到列表
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+      // 自动打开任务详情
+      setSelectedTaskId(newTask.id);
+      rightPanel.openTask(newTask, {
+        onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
+        onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
     }

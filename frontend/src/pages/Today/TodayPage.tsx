@@ -14,6 +14,7 @@ export function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [drawerOpened, setDrawerOpened] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const today = dayjs().format('YYYY-MM-DD');
 
@@ -64,6 +65,26 @@ export function TodayPage() {
     }
   };
 
+  const handleUpdateQuadrant = async (id: number, quadrant: Task['quadrant']) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+
+    // 乐观更新：立即更新本地状态
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => (t.id === id ? { ...t, quadrant } : t))
+    );
+
+    try {
+      await tasksApi.patchTask(id, { quadrant });
+    } catch (error) {
+      console.error('Failed to update quadrant:', error);
+      // 如果失败，回滚状态
+      setTasks((prevTasks) =>
+        prevTasks.map((t) => (t.id === id ? { ...t, quadrant: task.quadrant } : t))
+      );
+    }
+  };
+
   const handleSave = async (input: CreateTaskInput, taskId?: number) => {
     try {
       if (taskId) {
@@ -78,6 +99,7 @@ export function TodayPage() {
   };
 
   const handleTaskClick = (task: Task) => {
+    setSelectedTaskId(task.id);
     setSelectedTask(task);
     setDrawerOpened(true);
   };
@@ -89,8 +111,13 @@ export function TodayPage() {
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      await tasksApi.createTask({ title, date });
-      fetchTasks();
+      const newTask = await tasksApi.createTask({ title, date });
+      // 乐观更新：直接添加新任务到列表
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+      // 自动打开任务详情
+      setSelectedTaskId(newTask.id);
+      setSelectedTask(newTask);
+      setDrawerOpened(true);
     } catch (error) {
       console.error('Failed to create task:', error);
     }
@@ -187,6 +214,8 @@ export function TodayPage() {
                         onDelete={handleDelete}
                         onClick={handleTaskClick}
                         showMeta={true}
+                        selected={selectedTaskId === task.id}
+                        onUpdateQuadrant={handleUpdateQuadrant}
                       />
                     ))}
                   </Stack>
@@ -210,6 +239,8 @@ export function TodayPage() {
                         onDelete={handleDelete}
                         onClick={handleTaskClick}
                         showMeta={true}
+                        selected={selectedTaskId === task.id}
+                        onUpdateQuadrant={handleUpdateQuadrant}
                       />
                     ))}
                   </TaskGroup>
@@ -229,6 +260,8 @@ export function TodayPage() {
                         onDelete={handleDelete}
                         onClick={handleTaskClick}
                         showMeta={true}
+                        selected={selectedTaskId === task.id}
+                        onUpdateQuadrant={handleUpdateQuadrant}
                       />
                     ))}
                   </TaskGroup>

@@ -19,10 +19,14 @@ export function TaskDetailPanel() {
   const { task, opened, patchTask, deleteTask, close } = useRightPanel();
 
   const [isRange, setIsRange] = useState(false);
+  const [localTitle, setLocalTitle] = useState('');
+  const [localDescription, setLocalDescription] = useState('');
 
   useEffect(() => {
     if (task) {
       setIsRange(!!(task.rangeStart && task.rangeEnd));
+      setLocalTitle(task.title || '');
+      setLocalDescription(task.description || '');
     }
   }, [task]);
 
@@ -55,16 +59,24 @@ export function TaskDetailPanel() {
         <TextInput
           label="标题"
           placeholder="任务标题"
-          value={task?.title || ''}
-          onChange={(e) => debouncedPatch({ title: e.currentTarget.value })}
+          value={localTitle}
+          onChange={(e) => {
+            const newValue = e.currentTarget.value;
+            setLocalTitle(newValue);
+            debouncedPatch({ title: newValue });
+          }}
         />
 
         <Textarea
           label="描述"
           placeholder="任务描述"
           minRows={3}
-          value={task?.description || ''}
-          onChange={(e) => debouncedPatch({ description: e.currentTarget.value })}
+          value={localDescription}
+          onChange={(e) => {
+            const newValue = e.currentTarget.value;
+            setLocalDescription(newValue);
+            debouncedPatch({ description: newValue });
+          }}
         />
 
         <SegmentedControl

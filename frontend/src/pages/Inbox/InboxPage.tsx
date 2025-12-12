@@ -43,6 +43,7 @@ const sortTasks = (a: Task, b: Task) => {
 export function InboxPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const rightPanel = useRightPanel();
 
   const fetchTasks = async () => {
@@ -92,6 +93,26 @@ export function InboxPage() {
     }
   };
 
+  const handleUpdateQuadrant = async (id: number, quadrant: Task['quadrant']) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+
+    // 乐观更新：立即更新本地状态
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => (t.id === id ? { ...t, quadrant } : t))
+    );
+
+    try {
+      await tasksApi.patchTask(id, { quadrant });
+    } catch (error) {
+      console.error('Failed to update quadrant:', error);
+      // 如果失败，回滚状态
+      setTasks((prevTasks) =>
+        prevTasks.map((t) => (t.id === id ? { ...t, quadrant: task.quadrant } : t))
+      );
+    }
+  };
+
   const handleSave = async (input: CreateTaskInput, taskId?: number) => {
     try {
       if (taskId) {
@@ -106,6 +127,7 @@ export function InboxPage() {
   };
 
   const handleTaskClick = (task: Task) => {
+    setSelectedTaskId(task.id);
     rightPanel.openTask(task, {
       onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
       onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
@@ -118,8 +140,15 @@ export function InboxPage() {
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      await tasksApi.createTask({ title, date });
-      fetchTasks();
+      const newTask = await tasksApi.createTask({ title, date });
+      // 乐观更新：直接添加新任务到列表
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+      // 设置选中状态并自动打开任务详情
+      setSelectedTaskId(newTask.id);
+      rightPanel.openTask(newTask, {
+        onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
+        onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
     }
@@ -189,8 +218,10 @@ export function InboxPage() {
                     task={task}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
                     showMeta={true}
+                    selected={selectedTaskId === task.id}
                   />
                 ))}
               </Stack>
@@ -212,8 +243,10 @@ export function InboxPage() {
                     task={task}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
                     showMeta={true}
+                    selected={selectedTaskId === task.id}
                   />
                 ))}
               </TaskGroup>
@@ -231,8 +264,10 @@ export function InboxPage() {
                     task={task}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
                     showMeta={true}
+                    selected={selectedTaskId === task.id}
                   />
                 ))}
               </TaskGroup>

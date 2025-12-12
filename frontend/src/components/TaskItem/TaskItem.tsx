@@ -1,6 +1,7 @@
-import { Checkbox, Paper, Text, Group, Badge, ActionIcon } from '@mantine/core';
-import { IconTrash, IconClock } from '@tabler/icons-react';
+import { Checkbox, Paper, Text, Group, Badge, ActionIcon, Menu } from '@mantine/core';
+import { IconTrash, IconClock, IconFlag } from '@tabler/icons-react';
 import dayjs from 'dayjs';
+import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
 
 interface TaskItemProps {
@@ -8,11 +9,14 @@ interface TaskItemProps {
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
   onClick: (task: Task) => void;
+  onUpdateQuadrant?: (id: number, quadrant: Task['quadrant']) => void;
   showMeta?: boolean; // 是否显示右侧元信息（列表名和日期）
   compact?: boolean; // 紧凑模式，信息在一行显示
+  selected?: boolean; // 是否被选中（高亮显示）
 }
 
-export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, compact = false }: TaskItemProps) {
+export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, showMeta = false, compact = false, selected = false }: TaskItemProps) {
+  const [contextMenuOpened, setContextMenuOpened] = useState(false);
   const checkboxColor = () => {
     if (task.status === 'done') return 'gray';
     switch (task.quadrant) {
@@ -38,8 +42,9 @@ export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, 
       case 'NU':
         return '#51cf66'; // 鲜艳绿
       case 'NN':
+        return '#adb5bd'; // 灰色（不重要不紧急）
       default:
-        return '#74c0fc'; // 鲜艳蓝
+        return '#adb5bd';
     }
   };
   const formatTime = (time?: string | null) => {
@@ -78,16 +83,44 @@ export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, 
 
   if (compact) {
     // 紧凑模式：一行显示所有信息
+    // 监听全局点击/滚动以关闭右键菜单（受控模式）
+    useEffect(() => {
+      if (!contextMenuOpened) return;
+      const close = () => setContextMenuOpened(false);
+      window.addEventListener('click', close, { capture: true });
+      window.addEventListener('scroll', close, true);
+      window.addEventListener('contextmenu', close);
+      return () => {
+        window.removeEventListener('click', close, { capture: true } as any);
+        window.removeEventListener('scroll', close, true);
+        window.removeEventListener('contextmenu', close);
+      };
+    }, [contextMenuOpened]);
     return (
-      <div
-        style={{
-          cursor: 'pointer',
-          padding: '6px 12px',
-          borderBottom: '1px solid #f1f3f5',
-          backgroundColor: task.status === 'done' ? '#f9fafb' : '#fff',
-        }}
-        onClick={() => onClick(task)}
-      >
+      <Menu opened={contextMenuOpened} withinPortal>
+        <Menu.Target>
+          <div
+            style={{
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderBottom: '1px solid #f1f3f5',
+              backgroundColor: selected ? '#e7f5ff' : task.status === 'done' ? '#f9fafb' : '#fff',
+              borderLeft: selected ? '3px solid #228be6' : '3px solid transparent',
+              transition: 'all 0.15s ease',
+            }}
+            onClick={(e) => {
+              onClick(task);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenuOpened(true);
+            }}
+            onMouseDown={(e) => {
+              // 左键仅打开详情，不打开菜单
+              if (e.button === 0) e.stopPropagation();
+            }}
+          >
         <Group justify="space-between" wrap="nowrap" gap={8}>
           <Group gap={8} style={{ flex: 1, minWidth: 0 }}>
             <div onClick={(e) => e.stopPropagation()}>
@@ -138,18 +171,109 @@ export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, 
             )}
           </Group>
         </Group>
-      </div>
+          </div>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Label>优先级</Menu.Label>
+          <div style={{ padding: '4px 12px' }}>
+            <Group gap="xs" justify="center">
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateQuadrant?.(task.id, 'IU');
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <IconFlag size={20} style={{ color: '#ff6b6b' }} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateQuadrant?.(task.id, 'IN');
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <IconFlag size={20} style={{ color: '#ffd43b' }} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateQuadrant?.(task.id, 'NU');
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <IconFlag size={20} style={{ color: '#51cf66' }} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateQuadrant?.(task.id, 'NN');
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <IconFlag size={20} style={{ color: '#adb5bd' }} />
+              </ActionIcon>
+            </Group>
+          </div>
+          <Menu.Divider />
+          <Menu.Item
+            color="red"
+            leftSection={<IconTrash size={14} />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+          >
+            删除任务
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
     );
   }
 
   // 默认模式：多行显示
   return (
-    <Paper
-      p="md"
-      withBorder
-      style={{ cursor: 'pointer' }}
-      onClick={() => onClick(task)}
+    <Menu
+      opened={contextMenuOpened}
+      onChange={setContextMenuOpened}
+      withinPortal
+      closeOnClickOutside
+      closeOnEscape
     >
+      <Menu.Target>
+        <Paper
+          p="md"
+          withBorder
+          style={{
+            cursor: 'pointer',
+            backgroundColor: selected ? '#e7f5ff' : undefined,
+            borderColor: selected ? '#228be6' : undefined,
+            borderWidth: selected ? '2px' : undefined,
+            transition: 'all 0.15s ease',
+          }}
+          onClick={(e) => {
+            onClick(task);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenuOpened(true);
+          }}
+          onMouseDown={(e) => {
+            // 阻止 Menu.Target 的默认点击行为
+            if (e.button === 0) {
+              e.stopPropagation();
+            }
+          }}
+        >
       <Group justify="space-between" wrap="nowrap">
         <Group gap="sm" style={{ flex: 1 }}>
           <div onClick={(e) => e.stopPropagation()}>
@@ -235,6 +359,71 @@ export function TaskItem({ task, onToggle, onDelete, onClick, showMeta = false, 
           </ActionIcon>
         </Group>
       </Group>
-    </Paper>
+        </Paper>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>优先级</Menu.Label>
+        <div style={{ padding: '4px 12px' }}>
+          <Group gap="xs" justify="center">
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateQuadrant?.(task.id, 'IU');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <IconFlag size={20} style={{ color: '#ff6b6b' }} />
+            </ActionIcon>
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateQuadrant?.(task.id, 'IN');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <IconFlag size={20} style={{ color: '#ffd43b' }} />
+            </ActionIcon>
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateQuadrant?.(task.id, 'NU');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <IconFlag size={20} style={{ color: '#51cf66' }} />
+            </ActionIcon>
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateQuadrant?.(task.id, 'NN');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <IconFlag size={20} style={{ color: '#adb5bd' }} />
+            </ActionIcon>
+          </Group>
+        </div>
+        <Menu.Divider />
+        <Menu.Item
+          color="red"
+          leftSection={<IconTrash size={14} />}
+          onClick={(e) => {
+            e.stopPropagation();
+            setContextMenuOpened(false);
+            onDelete(task.id);
+          }}
+        >
+          删除任务
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 }
