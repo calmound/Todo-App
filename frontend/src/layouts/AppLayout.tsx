@@ -1,10 +1,11 @@
-import { AppShell, Burger, Group, NavLink } from '@mantine/core';
+import { AppShell, Burger, Group, NavLink, ActionIcon, Tooltip } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMantineTheme } from '@mantine/core';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { IconCalendar, IconListCheck } from '@tabler/icons-react';
+import { IconCalendar, IconListCheck, IconDownload } from '@tabler/icons-react';
 import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
 import { TaskDetailPanel } from '../components/TaskDetail/TaskDetailPanel';
+import { tasksApi } from '../api/tasks';
 
 function LayoutInner() {
   const [opened, { toggle }] = useDisclosure();
@@ -19,6 +20,42 @@ function LayoutInner() {
     { path: '/calendar', label: '日历', icon: IconCalendar },
   ];
 
+  const handleExport = async () => {
+    try {
+      // 获取所有任务数据
+      const tasks = await tasksApi.getAllTasks();
+
+      // 创建导出数据对象
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        version: '1.0',
+        tasks: tasks,
+      };
+
+      // 转换为JSON字符串
+      const jsonString = JSON.stringify(exportData, null, 2);
+
+      // 创建Blob对象
+      const blob = new Blob([jsonString], { type: 'application/json' });
+
+      // 创建下载链接
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tasks-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+
+      // 清理
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export tasks:', error);
+    }
+  };
+
   const panelWidth = 420;
   return (
     <AppShell
@@ -31,9 +68,16 @@ function LayoutInner() {
       padding="md"
     >
       <AppShell.Header>
-        <Group h="100%" px="md">
-          <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>任务管理器</div>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>秒办</div>
+          </Group>
+          <Tooltip label="导出数据备份">
+            <ActionIcon variant="subtle" color="gray" size="lg" onClick={handleExport}>
+              <IconDownload size={20} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </AppShell.Header>
 

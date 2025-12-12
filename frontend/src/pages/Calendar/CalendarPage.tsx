@@ -43,9 +43,10 @@ export function CalendarPage() {
     }
   };
 
+  // 数据加载：仅在切换视图模式或月份变化时加载
   useEffect(() => {
     fetchTasks();
-  }, [currentMonth, selectedDate, viewMode]);
+  }, [currentMonth, viewMode]);
 
   const handleToggle = async (id: number) => {
     console.log('[DEBUG] handleToggle called with id:', id);
@@ -333,16 +334,32 @@ function MonthGrid({ currentMonth, onSelectDate, tasks, onToggle, onClickTask }:
           return (
             <div
               key={date.toISOString()}
-              onClick={() => onSelectDate(date)}
               style={{
                 border: '1px solid #f1f3f5',
                 padding: 6,
                 overflow: 'hidden',
-                background: isToday ? '#fff3bf' : 'transparent'
+                background: 'transparent',
+                userSelect: 'none',
+                cursor: 'default'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <Text size="sm" c={dim ? 'dimmed' : undefined} fw={isToday ? 700 : 500}>{dayjs(date).format('D')}</Text>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    backgroundColor: isToday ? '#ffd43b' : 'transparent',
+                    fontWeight: isToday ? 700 : 500,
+                    fontSize: '0.875rem',
+                    color: dim ? '#adb5bd' : undefined,
+                  }}
+                >
+                  {dayjs(date).format('D')}
+                </div>
               </div>
               <div style={{ maxHeight: 'calc(100% - 20px)', overflow: 'hidden' }}>
                 {visible.map((t) => {
@@ -355,7 +372,6 @@ function MonthGrid({ currentMonth, onSelectDate, tasks, onToggle, onClickTask }:
                   return (
                   <div
                     key={t.id}
-                    onClick={(e) => { e.stopPropagation(); onClickTask(t); }}
                     style={{
                       background: col.bg,
                       color: col.text,
@@ -368,7 +384,8 @@ function MonthGrid({ currentMonth, onSelectDate, tasks, onToggle, onClickTask }:
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       opacity: t.status === 'done' ? 0.7 : 1,
-                      cursor: 'pointer'
+                      userSelect: 'none',
+                      cursor: 'default'
                     }}
                     title={t.title}
                   >
@@ -527,17 +544,17 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
           const selected = isSameDay(d, date);
           const isToday = isSameDay(d, new Date());
           return (
-            <div key={`hdr-${i}`} style={{ textAlign: 'center', padding: '8px 0', color: '#868e96', borderLeft: i === 0 ? 'none' : '1px solid #f1f3f5' }}>
+            <div key={`hdr-${i}`} style={{ textAlign: 'center', padding: '8px 0', color: '#868e96', borderLeft: i === 0 ? 'none' : '1px solid #f1f3f5', userSelect: 'none' }}>
               <div style={{ fontSize: 12, marginBottom: 6 }}>{weekdayCN[i]}</div>
               <div
-                onClick={() => onSelectDate(d)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   width: 28, height: 28, borderRadius: 999,
                   background: selected ? '#228be6' : isToday ? '#ffd43b' : 'transparent',
                   color: selected ? '#fff' : isToday ? '#000000' : '#343a40',
                   fontWeight: selected ? 700 : 600,
-                  cursor: 'pointer'
+                  userSelect: 'none',
+                  cursor: 'default'
                 }}
               >{dayjs(d).date()}</div>
             </div>
@@ -574,7 +591,7 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
         });
         const lanesCount = lanes.length || 1;
         return (
-          <div key={d.toISOString()} style={{ borderLeft: idx === 0 ? 'none' : '1px solid #e9ecef', borderTop: '1px solid #e9ecef', background: '#ffffff', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div key={d.toISOString()} style={{ borderLeft: idx === 0 ? 'none' : '1px solid #e9ecef', borderTop: '1px solid #e9ecef', background: '#ffffff', height: '100%', display: 'flex', flexDirection: 'column', userSelect: 'none', cursor: 'default' }}>
             {/* 全天/周期区 */}
             <div style={{ padding: 10 }}>
               {allDay.length > 0 && (
@@ -583,8 +600,7 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
                     const col = quadColor(t);
                     return (
                       <div key={t.id}
-                           onClick={() => onClickTask(t)}
-                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}
+                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, userSelect: 'none', cursor: 'default' }}
                       >{t.title}</div>
                     );
                   })}
@@ -593,7 +609,7 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
             </div>
 
             {/* 任务列表填充剩余高度 */}
-            <div style={{ flex: 1, padding: '0 10px 10px 10px', overflowY: 'auto' }}>
+            <div style={{ flex: 1, padding: '0 10px 10px 10px', overflowY: 'auto', userSelect: 'none' }}>
               <Stack gap="xs">
                 {items
                   .sort((a, b) => {
@@ -606,8 +622,7 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
                     const col = quadColor(t);
                     return (
                       <div key={t.id}
-                           onClick={() => onClickTask(t)}
-                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 12 }}
+                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 12, userSelect: 'none', cursor: 'default' }}
                       >
                         <div style={{ fontWeight: 600 }}>{t.title}</div>
                         <div style={{ color: '#868e96', fontSize: 12 }}>

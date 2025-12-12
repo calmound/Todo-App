@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- 背景：明亮、舒适的蓝色渐变 (Sky 400 -> Sky 500) -->
+    <!-- 既保证了在浅色标题栏的可见性，又不会显得过于沉重 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景：圆润的矩形，充满活力 -->
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#bgGradient)"/>
+
+  <!-- 日历纸张：纯白 -->
+  <rect x="12" y="14" width="40" height="38" rx="6" fill="#FFFFFF"/>
+  
+  <!-- 日历顶部装饰：极淡的蓝色，增加层次感而不突兀 -->
+  <path d="M12 20 C12 16.68 14.68 14 18 14 L46 14 C49.32 14 52 16.68 52 20 L52 22 L12 22 Z" fill="#E0F2FE"/>
+
+  <!-- 勾选：使用圆润的线条，颜色深邃但柔和 (Sky 600) -->
+  <!-- 线条宽度调整为 6，比之前的 8 更精致 -->
+  <path d="M20 33 L29 42 L44 23" fill="none" stroke="#0284C7" stroke-width="6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

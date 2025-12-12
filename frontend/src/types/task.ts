@@ -11,6 +11,10 @@ export interface Task {
   endTime?: string | null; // 'HH:mm'
   status: 'pending' | 'done';
   quadrant: 'IU' | 'IN' | 'NU' | 'NN';
+  // 子任务支持
+  parentId?: number | null; // 父任务ID，null 表示主任务
+  order?: number; // 排序字段
+  subtasks?: Task[]; // 子任务列表（前端构建）
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +30,8 @@ export interface CreateTaskInput {
   endTime?: string;
   status?: 'pending' | 'done';
   quadrant?: 'IU' | 'IN' | 'NU' | 'NN';
+  parentId?: number | null; // 子任务支持
+  order?: number; // 排序支持
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {}

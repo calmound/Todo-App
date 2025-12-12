@@ -1,8 +1,9 @@
-import { Checkbox, Paper, Text, Group, Badge, ActionIcon, Menu } from '@mantine/core';
-import { IconTrash, IconClock, IconFlag } from '@tabler/icons-react';
+import { Checkbox, Paper, Text, Group, Badge, ActionIcon, Menu, TextInput } from '@mantine/core';
+import { IconTrash, IconClock, IconFlag, IconCalendar, IconChevronRight, IconChevronDown, IconPlus, IconRepeat } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
+import { tasksApi } from '../../api/tasks';
 
 interface TaskItemProps {
   task: Task;
@@ -10,13 +11,55 @@ interface TaskItemProps {
   onDelete: (id: number) => void;
   onClick: (task: Task) => void;
   onUpdateQuadrant?: (id: number, quadrant: Task['quadrant']) => void;
+  onPatched?: (t: Task) => void;
   showMeta?: boolean; // 是否显示右侧元信息（列表名和日期）
   compact?: boolean; // 紧凑模式，信息在一行显示
   selected?: boolean; // 是否被选中（高亮显示）
+  level?: number; // 子任务层级，0表示主任务，1表示子任务
+  hasChildren?: boolean; // 是否有子任务
+  expanded?: boolean; // 是否展开子任务
+  onToggleExpand?: (id: number) => void; // 展开/折叠子任务
+  onAddSubtask?: (parentId: number) => void; // 添加子任务
+  completedCount?: number; // 已完成子任务数
+  totalCount?: number; // 子任务总数
 }
 
-export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, showMeta = false, compact = false, selected = false }: TaskItemProps) {
+const CLOSE_MENUS_EVENT = 'task-item-close-menus';
+
+export function TaskItem({
+  task,
+  onToggle,
+  onDelete,
+  onClick,
+  onUpdateQuadrant,
+  onPatched,
+  showMeta = false,
+  compact = false,
+  selected = false,
+  level = 0,
+  hasChildren = false,
+  expanded = false,
+  onToggleExpand,
+  onAddSubtask,
+  completedCount = 0,
+  totalCount = 0
+}: TaskItemProps) {
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [editing, setEditing] = useState(task.title === '');
+  const [title, setTitle] = useState(task.title);
+  useEffect(() => { setTitle(task.title); }, [task.title]);
+  useEffect(() => {
+    const handler = () => setContextMenuOpened(false);
+    window.addEventListener(CLOSE_MENUS_EVENT, handler);
+    return () => window.removeEventListener(CLOSE_MENUS_EVENT, handler);
+  }, []);
+  // 自动进入编辑状态：如果标题为空
+  useEffect(() => {
+    if (task.title === '' && selected) {
+      setEditing(true);
+    }
+  }, [task.title, selected]);
   const checkboxColor = () => {
     if (task.status === 'done') return 'gray';
     switch (task.quadrant) {
@@ -89,32 +132,35 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
       const close = () => setContextMenuOpened(false);
       window.addEventListener('click', close, { capture: true });
       window.addEventListener('scroll', close, true);
-      window.addEventListener('contextmenu', close);
+      // 不在全局捕获 contextmenu，避免与打开逻辑冲突
       return () => {
         window.removeEventListener('click', close, { capture: true } as any);
         window.removeEventListener('scroll', close, true);
-        window.removeEventListener('contextmenu', close);
+        //
       };
     }, [contextMenuOpened]);
     return (
-      <Menu opened={contextMenuOpened} withinPortal>
+      <Menu opened={contextMenuOpened} withinPortal dropdownProps={{ style: { position: 'fixed', left: menuPos.x, top: menuPos.y } }}>
         <Menu.Target>
           <div
             style={{
-              cursor: 'pointer',
               padding: '6px 12px',
+              paddingLeft: `${12 + level * 32}px`, // 子任务缩进
               borderBottom: '1px solid #f1f3f5',
               backgroundColor: selected ? '#e7f5ff' : task.status === 'done' ? '#f9fafb' : '#fff',
               borderLeft: selected ? '3px solid #228be6' : '3px solid transparent',
               transition: 'all 0.15s ease',
+              userSelect: 'none',
             }}
-            onClick={(e) => {
-              onClick(task);
-            }}
+          onClick={(e) => {
+            onClick(task);
+          }}
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              window.dispatchEvent(new Event(CLOSE_MENUS_EVENT));
               setContextMenuOpened(true);
+              setMenuPos({ x: e.clientX, y: e.clientY });
             }}
             onMouseDown={(e) => {
               // 左键仅打开详情，不打开菜单
@@ -122,10 +168,26 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
             }}
           >
         <Group justify="space-between" wrap="nowrap" gap={8}>
-          <Group gap={8} style={{ flex: 1, minWidth: 0 }}>
+          <Group gap={8} style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
+            {/* 展开/折叠按钮 */}
+            {hasChildren && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand?.(task.id);
+                }}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                {expanded ? (
+                  <IconChevronDown size={16} color="#868e96" />
+                ) : (
+                  <IconChevronRight size={16} color="#868e96" />
+                )}
+              </div>
+            )}
             <div onClick={(e) => e.stopPropagation()}>
               <Checkbox
-                size="xs"
+                size="sm"
                 color={checkboxColor()}
                 checked={task.status === 'done'}
                 onChange={(e) => {
@@ -142,38 +204,82 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 }}
               />
             </div>
-            <Group gap={6} style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
-              <Text
-                size="sm"
-                fw={task.status === 'done' ? 400 : 500}
-                c={task.status === 'done' ? 'dimmed' : undefined}
-                style={{
-                  textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {task.title}
-              </Text>
-              {task.rangeStart && task.rangeEnd && (
-                <Badge size="xs" color="grape" variant="light">周期</Badge>
-              )}
-            </Group>
+            <TextInput
+              variant="unstyled"
+              size="xs"
+              value={title}
+              readOnly={!editing}
+              autoFocus={editing}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
+              }}
+              onFocus={() => setEditing(true)}
+              onChange={(e) => setTitle(e.currentTarget.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const newTitle = title.trim() || task.title;
+                  setTitle(newTitle);
+                  setEditing(false);
+                  if (newTitle !== task.title) {
+                    const updated = await tasksApi.patchTask(task.id, { title: newTitle });
+                    onPatched?.(updated);
+                  }
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setTitle(task.title);
+                  setEditing(false);
+                }
+              }}
+              onBlur={async () => {
+                const newTitle = title.trim() || task.title;
+                setTitle(newTitle);
+                setEditing(false);
+                if (newTitle !== task.title) {
+                  const updated = await tasksApi.patchTask(task.id, { title: newTitle });
+                  onPatched?.(updated);
+                }
+              }}
+              styles={{
+                input: {
+                  padding: 0,
+                  height: 20,
+                  lineHeight: '20px',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  caretColor: editing ? undefined : 'transparent',
+                },
+              }}
+              style={{ flex: 1, minWidth: 0 }}
+            />
           </Group>
-          <Group gap={6} wrap="nowrap">
+          {/* 右侧紧凑元素组：周期图标、进度、日期 */}
+          <Group gap={8} wrap="nowrap" style={{ alignItems: 'center', userSelect: 'none' }}>
+            {task.rangeStart && task.rangeEnd && (
+              <IconRepeat size={14} color="#ae3ec9" style={{ opacity: 0.9 }} />
+            )}
+            {totalCount > 0 && level === 0 && (
+              <Text size="xs" c="dimmed" fw={500}>
+                {completedCount}/{totalCount}
+              </Text>
+            )}
             {showMeta && (
-              <>
-                <Text size="xs" c={task.status === 'done' ? 'dimmed' : isOverdue() ? 'red.6' : 'blue.6'} fw={500} style={{ minWidth: '50px', textAlign: 'right' }}>
-                  {formatDateMeta()}
-                </Text>
-              </>
+              <Text size="xs" c={task.status === 'done' ? 'dimmed' : isOverdue() ? 'red.6' : 'blue.6'} fw={500}>
+                {formatDateMeta()}
+              </Text>
             )}
           </Group>
         </Group>
-          </div>
+        </div>
         </Menu.Target>
-        <Menu.Dropdown>
+        <Menu.Dropdown
+          style={{
+            position: 'fixed',
+            top: menuPos.y,
+            left: menuPos.x,
+          }}
+        >
           <Menu.Label>优先级</Menu.Label>
           <div style={{ padding: '4px 12px' }}>
             <Group gap="xs" justify="center">
@@ -183,6 +289,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 onClick={(e) => {
                   e.stopPropagation();
                   onUpdateQuadrant?.(task.id, 'IU');
+                  setContextMenuOpened(false);
                 }}
                 style={{ cursor: 'pointer' }}
               >
@@ -194,6 +301,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 onClick={(e) => {
                   e.stopPropagation();
                   onUpdateQuadrant?.(task.id, 'IN');
+                  setContextMenuOpened(false);
                 }}
                 style={{ cursor: 'pointer' }}
               >
@@ -205,6 +313,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 onClick={(e) => {
                   e.stopPropagation();
                   onUpdateQuadrant?.(task.id, 'NU');
+                  setContextMenuOpened(false);
                 }}
                 style={{ cursor: 'pointer' }}
               >
@@ -216,6 +325,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 onClick={(e) => {
                   e.stopPropagation();
                   onUpdateQuadrant?.(task.id, 'NN');
+                  setContextMenuOpened(false);
                 }}
                 style={{ cursor: 'pointer' }}
               >
@@ -224,11 +334,27 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
             </Group>
           </div>
           <Menu.Divider />
+          {level === 0 && onAddSubtask && (
+            <>
+              <Menu.Item
+                leftSection={<IconPlus size={14} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContextMenuOpened(false);
+                  onAddSubtask(task.id);
+                }}
+              >
+                添加子任务
+              </Menu.Item>
+              <Menu.Divider />
+            </>
+          )}
           <Menu.Item
             color="red"
             leftSection={<IconTrash size={14} />}
             onClick={(e) => {
               e.stopPropagation();
+              setContextMenuOpened(false);
               onDelete(task.id);
             }}
           >
@@ -247,17 +373,19 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
       withinPortal
       closeOnClickOutside
       closeOnEscape
+      dropdownProps={{ style: { position: 'fixed', left: menuPos.x, top: menuPos.y } }}
     >
       <Menu.Target>
         <Paper
           p="md"
+          pl={`${16 + level * 32}px`}
           withBorder
           style={{
-            cursor: 'pointer',
             backgroundColor: selected ? '#e7f5ff' : undefined,
             borderColor: selected ? '#228be6' : undefined,
             borderWidth: selected ? '2px' : undefined,
             transition: 'all 0.15s ease',
+            userSelect: 'none',
           }}
           onClick={(e) => {
             onClick(task);
@@ -266,6 +394,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
             e.preventDefault();
             e.stopPropagation();
             setContextMenuOpened(true);
+            setMenuPos({ x: e.clientX, y: e.clientY });
           }}
           onMouseDown={(e) => {
             // 阻止 Menu.Target 的默认点击行为
@@ -275,9 +404,26 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
           }}
         >
       <Group justify="space-between" wrap="nowrap">
-        <Group gap="sm" style={{ flex: 1 }}>
+        <Group gap="sm" style={{ flex: 1, alignItems: 'center' }}>
+          {/* 展开/折叠按钮 */}
+          {hasChildren && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand?.(task.id);
+              }}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              {expanded ? (
+                <IconChevronDown size={18} color="#868e96" />
+              ) : (
+                <IconChevronRight size={18} color="#868e96" />
+              )}
+            </div>
+          )}
           <div onClick={(e) => e.stopPropagation()}>
             <Checkbox
+              size="sm"
               color={checkboxColor()}
               checked={task.status === 'done'}
               onChange={(e) => {
@@ -297,23 +443,74 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
               }}
             />
           </div>
-          <div style={{ flex: 1 }}>
-            <Text
-              fw={500}
-              style={{
-                textDecoration: task.status === 'done' ? 'line-through' : 'none',
+          <Group gap={6} style={{ flex: 1, minWidth: 0, alignItems: 'center' }} wrap="nowrap">
+            <TextInput
+              variant="unstyled"
+              value={title}
+              readOnly={!editing}
+              autoFocus={editing}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
               }}
-            >
-              {task.title}
-            </Text>
-            {task.description && (
-              <Text size="sm" c="dimmed" lineClamp={1}>
-                {task.description}
+              onFocus={() => setEditing(true)}
+              onChange={(e) => setTitle(e.currentTarget.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const newTitle = title.trim() || task.title;
+                  setTitle(newTitle);
+                  setEditing(false);
+                  if (newTitle !== task.title) {
+                    const updated = await tasksApi.patchTask(task.id, { title: newTitle });
+                    onPatched?.(updated);
+                  }
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setTitle(task.title);
+                  setEditing(false);
+                }
+              }}
+              onBlur={async () => {
+                const newTitle = title.trim() || task.title;
+                setTitle(newTitle);
+                setEditing(false);
+                if (newTitle !== task.title) {
+                  const updated = await tasksApi.patchTask(task.id, { title: newTitle });
+                  onPatched?.(updated);
+                }
+              }}
+              styles={{
+                root: { height: 24 },
+                input: {
+                  padding: 0,
+                  height: 24,
+                  lineHeight: '24px',
+                  fontWeight: 500,
+                  fontSize: '1rem',
+                  caretColor: editing ? undefined : 'transparent',
+                },
+              }}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            {/* 子任务进度显示 */}
+            {totalCount > 0 && level === 0 && (
+              <Text size="sm" c="dimmed" fw={500}>
+                {completedCount} / {totalCount}
               </Text>
             )}
+            {task.rangeStart && task.rangeEnd && (
+              <IconRepeat size={16} color="#ae3ec9" style={{ opacity: 0.9 }} />
+            )}
+          </Group>
+          {task.description && (
+            <Text size="sm" c="dimmed" lineClamp={1}>
+              {task.description}
+            </Text>
+          )}
             <Group gap="xs" mt={4}>
               {task.rangeStart && task.rangeEnd ? (
-                <Badge size="xs" color="grape">周期</Badge>
+                <></>
               ) : task.allDay ? (
                 <Badge size="xs" color="blue">全天</Badge>
               ) : (
@@ -337,8 +534,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
                 </Badge>
               )}
             </Group>
-          </div>
-        </Group>
+          </Group>
         <Group gap="md">
           {showMeta && (
             <Group gap={8}>
@@ -361,7 +557,13 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
       </Group>
         </Paper>
       </Menu.Target>
-      <Menu.Dropdown>
+      <Menu.Dropdown
+        style={{
+          position: 'fixed',
+          top: menuPos.y,
+          left: menuPos.x,
+        }}
+      >
         <Menu.Label>优先级</Menu.Label>
         <div style={{ padding: '4px 12px' }}>
           <Group gap="xs" justify="center">
@@ -371,6 +573,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
               onClick={(e) => {
                 e.stopPropagation();
                 onUpdateQuadrant?.(task.id, 'IU');
+                setContextMenuOpened(false);
               }}
               style={{ cursor: 'pointer' }}
             >
@@ -382,6 +585,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
               onClick={(e) => {
                 e.stopPropagation();
                 onUpdateQuadrant?.(task.id, 'IN');
+                setContextMenuOpened(false);
               }}
               style={{ cursor: 'pointer' }}
             >
@@ -393,6 +597,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
               onClick={(e) => {
                 e.stopPropagation();
                 onUpdateQuadrant?.(task.id, 'NU');
+                setContextMenuOpened(false);
               }}
               style={{ cursor: 'pointer' }}
             >
@@ -404,6 +609,7 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
               onClick={(e) => {
                 e.stopPropagation();
                 onUpdateQuadrant?.(task.id, 'NN');
+                setContextMenuOpened(false);
               }}
               style={{ cursor: 'pointer' }}
             >
@@ -412,6 +618,21 @@ export function TaskItem({ task, onToggle, onDelete, onClick, onUpdateQuadrant, 
           </Group>
         </div>
         <Menu.Divider />
+        {level === 0 && onAddSubtask && (
+          <>
+            <Menu.Item
+              leftSection={<IconPlus size={14} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                setContextMenuOpened(false);
+                onAddSubtask(task.id);
+              }}
+            >
+              添加子任务
+            </Menu.Item>
+            <Menu.Divider />
+          </>
+        )}
         <Menu.Item
           color="red"
           leftSection={<IconTrash size={14} />}

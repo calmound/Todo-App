@@ -98,15 +98,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new task
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant } = req.body;
-
-    if (!title) {
-      return res.status(400).json({ error: '标题为必填项' });
-    }
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order } = req.body;
 
     const task = await prisma.task.create({
       data: {
-        title,
+        title: title || '',
         description: description || null,
         date: date || null,
         rangeStart: rangeStart || null,
@@ -116,6 +112,8 @@ router.post('/', async (req: Request, res: Response) => {
         endTime: endTime || null,
         status: status || 'pending',
         quadrant: quadrant || 'IN',
+        parentId: parentId || null,
+        order: order || 0,
       },
     });
 
@@ -130,16 +128,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant } = req.body;
-
-    if (!title) {
-      return res.status(400).json({ error: '标题为必填项' });
-    }
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order } = req.body;
 
     const task = await prisma.task.update({
       where: { id: parseInt(id) },
       data: {
-        title,
+        title: title || '',
         description: description || null,
         date: date || null,
         rangeStart: rangeStart || null,
@@ -149,6 +143,8 @@ router.put('/:id', async (req: Request, res: Response) => {
         endTime: endTime || null,
         status: status || 'pending',
         quadrant: quadrant || 'IN',
+        parentId: parentId !== undefined ? parentId : undefined,
+        order: order !== undefined ? order : undefined,
       },
     });
 

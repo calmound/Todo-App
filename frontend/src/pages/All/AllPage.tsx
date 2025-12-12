@@ -9,11 +9,13 @@ import { TaskItem } from '../../components/TaskItem/TaskItem';
 import { QuickInput } from '../../components/QuickInput/QuickInput';
 import { TaskGroup } from '../../components/TaskGroup/TaskGroup';
 import { useRightPanel } from '../../components/RightPanel/RightPanelContext';
+import { buildTaskTree, flattenTaskTree } from '../../utils/taskTree';
 
 export function AllPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
   const rightPanel = useRightPanel();
 
   const fetchTasks = async () => {
@@ -73,8 +75,15 @@ export function AllPage() {
   };
 
   const handleUpdateQuadrant = async (id: number, quadrant: Task['quadrant']) => {
+    console.log('[AllPage] handleUpdateQuadrant called with id:', id, 'quadrant:', quadrant);
     const task = tasks.find((t) => t.id === id);
-    if (!task) return;
+    if (!task) {
+      console.error('[AllPage] Task not found in tasks array, id:', id);
+      console.log('[AllPage] Current tasks:', tasks.map(t => ({ id: t.id, title: t.title, parentId: t.parentId })));
+      return;
+    }
+
+    console.log('[AllPage] Found task:', task.title, 'current quadrant:', task.quadrant);
 
     // 乐观更新：立即更新本地状态
     setTasks((prevTasks) =>
@@ -82,13 +91,65 @@ export function AllPage() {
     );
 
     try {
+      console.log('[AllPage] Calling API to update quadrant...');
       await tasksApi.patchTask(id, { quadrant });
+      console.log('[AllPage] API call successful');
     } catch (error) {
       console.error('Failed to update quadrant:', error);
       // 如果失败，回滚状态
       setTasks((prevTasks) =>
         prevTasks.map((t) => (t.id === id ? { ...t, quadrant: task.quadrant } : t))
       );
+    }
+  };
+
+  const handleToggleExpand = (id: number) => {
+    setExpandedTaskIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddSubtask = async (parentId: number) => {
+    try {
+      // 获取父任务的现有子任务数量，用于设置 order
+      const parentTask = tasks.find((t) => t.id === parentId);
+      const existingSubtasks = tasks.filter((t) => t.parentId === parentId);
+      const order = existingSubtasks.length;
+
+      // 创建一个新的空子任务
+      const newSubtask = await tasksApi.createTask({
+        title: '',
+        parentId,
+        order,
+        status: 'pending',
+        quadrant: parentTask?.quadrant || 'IN',
+        date: dayjs().format('YYYY-MM-DD'), // 默认为今天
+      });
+
+      // 添加到任务列表
+      setTasks((prevTasks) => [...prevTasks, newSubtask]);
+
+      // 确保父任务展开
+      setExpandedTaskIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(parentId);
+        return newSet;
+      });
+
+      // 自动打开新子任务的详情以便编辑
+      setSelectedTaskId(newSubtask.id);
+      rightPanel.openTask(newSubtask, {
+        onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
+        onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+      });
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
     }
   };
 
@@ -180,20 +241,48 @@ export function AllPage() {
     return at.localeCompare(bt);
   };
 
+  // 只处理顶层任务（不包括子任务）
+  const topLevelTasks = tasks.filter((t) => !t.parentId);
+
   // 按日期分组（只显示待处理的任务）
-  const overdueTasks = tasks.filter(
+  const overdueTopTasks = topLevelTasks.filter(
     (t) => t.status === 'pending' && t.date && dayjs(t.date).isBefore(today, 'day')
   ).sort(sortTasks);
 
-  const todayTasks = tasks.filter(
+  const todayTopTasks = topLevelTasks.filter(
     (t) => t.status === 'pending' && t.date && dayjs(t.date).isSame(today, 'day')
   ).sort(sortTasks);
 
-  const futureTasks = tasks.filter(
+  const futureTopTasks = topLevelTasks.filter(
     (t) => t.status === 'pending' && (!t.date || dayjs(t.date).isAfter(today, 'day'))
   ).sort(sortTasks);
 
-  const completedTasks = tasks.filter((t) => t.status === 'done').sort(sortTasks);
+  const completedTopTasks = topLevelTasks.filter((t) => t.status === 'done').sort(sortTasks);
+
+  // 构建树形结构并扁平化（用于渲染）
+  const todayTree = buildTaskTree(tasks.filter((t) =>
+    todayTopTasks.find(top => top.id === t.id) ||
+    todayTopTasks.find(top => t.parentId === top.id)
+  ));
+  const todayFlat = flattenTaskTree(todayTree, expandedTaskIds);
+
+  const overdueTree = buildTaskTree(tasks.filter((t) =>
+    overdueTopTasks.find(top => top.id === t.id) ||
+    overdueTopTasks.find(top => t.parentId === top.id)
+  ));
+  const overdueFlat = flattenTaskTree(overdueTree, expandedTaskIds);
+
+  const futureTree = buildTaskTree(tasks.filter((t) =>
+    futureTopTasks.find(top => top.id === t.id) ||
+    futureTopTasks.find(top => t.parentId === top.id)
+  ));
+  const futureFlat = flattenTaskTree(futureTree, expandedTaskIds);
+
+  const completedTree = buildTaskTree(tasks.filter((t) =>
+    completedTopTasks.find(top => top.id === t.id) ||
+    completedTopTasks.find(top => t.parentId === top.id)
+  ));
+  const completedFlat = flattenTaskTree(completedTree, expandedTaskIds);
 
   if (loading) {
     return (
@@ -217,12 +306,12 @@ export function AllPage() {
           </Center>
         ) : (
           <Stack gap="md">
-            {todayTasks.length > 0 && (
+            {todayFlat.length > 0 && (
               <TaskGroup
                 title="今天"
-                count={todayTasks.length}
+                count={todayTopTasks.length}
               >
-                {todayTasks.map((task) => (
+                {todayFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -230,25 +319,33 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
+                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                     showMeta={true}
                     compact={true}
                     selected={selectedTaskId === task.id}
+                    level={level}
+                    hasChildren={hasChildren}
+                    expanded={expanded}
+                    onToggleExpand={handleToggleExpand}
+                    onAddSubtask={handleAddSubtask}
+                    completedCount={completedCount}
+                    totalCount={totalCount}
                   />
                 ))}
               </TaskGroup>
             )}
 
-            {overdueTasks.length > 0 && (
+            {overdueFlat.length > 0 && (
               <TaskGroup
                 title="已过期"
-                count={overdueTasks.length}
+                count={overdueTopTasks.length}
                 actions={
-                  <Button size="xs" variant="subtle" onClick={() => handlePostpone(overdueTasks)}>
+                  <Button size="xs" variant="subtle" onClick={() => handlePostpone(overdueTopTasks)}>
                     顺延
                   </Button>
                 }
               >
-                {overdueTasks.map((task) => (
+                {overdueFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -256,20 +353,28 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
+                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                     showMeta={true}
                     compact={true}
                     selected={selectedTaskId === task.id}
+                    level={level}
+                    hasChildren={hasChildren}
+                    expanded={expanded}
+                    onToggleExpand={handleToggleExpand}
+                    onAddSubtask={handleAddSubtask}
+                    completedCount={completedCount}
+                    totalCount={totalCount}
                   />
                 ))}
               </TaskGroup>
             )}
 
-            {futureTasks.length > 0 && (
+            {futureFlat.length > 0 && (
               <TaskGroup
                 title="未来"
-                count={futureTasks.length}
+                count={futureTopTasks.length}
               >
-                {futureTasks.map((task) => (
+                {futureFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -277,21 +382,29 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
+                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                     showMeta={true}
                     compact={true}
                     selected={selectedTaskId === task.id}
+                    level={level}
+                    hasChildren={hasChildren}
+                    expanded={expanded}
+                    onToggleExpand={handleToggleExpand}
+                    onAddSubtask={handleAddSubtask}
+                    completedCount={completedCount}
+                    totalCount={totalCount}
                   />
                 ))}
               </TaskGroup>
             )}
 
-            {completedTasks.length > 0 && (
+            {completedFlat.length > 0 && (
               <TaskGroup
                 title="已完成"
-                count={completedTasks.length}
+                count={completedTopTasks.length}
                 defaultOpened={true}
               >
-                {completedTasks.map((task) => (
+                {completedFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -299,9 +412,17 @@ export function AllPage() {
                     onDelete={handleDelete}
                     onUpdateQuadrant={handleUpdateQuadrant}
                     onClick={handleTaskClick}
+                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                     showMeta={true}
                     compact={true}
                     selected={selectedTaskId === task.id}
+                    level={level}
+                    hasChildren={hasChildren}
+                    expanded={expanded}
+                    onToggleExpand={handleToggleExpand}
+                    onAddSubtask={handleAddSubtask}
+                    completedCount={completedCount}
+                    totalCount={totalCount}
                   />
                 ))}
               </TaskGroup>
