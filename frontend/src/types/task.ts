@@ -1,5 +1,5 @@
 // 任务标签（多选）
-export type TaskCategory = '生活' | '工作' | '学习' | '创作' | '健康' | '社交';
+export type TaskCategory = '生活' | '工作' | '学习' | '创作' | '健康' | '社交' | '产品';
 
 export interface Task {
   id: number;

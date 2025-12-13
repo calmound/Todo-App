@@ -340,7 +340,8 @@ export function AnalysisPage() {
                                  cat.name === '生活' ? 'green' :
                                  cat.name === '创作' ? 'pink' :
                                  cat.name === '健康' ? 'red' :
-                                 cat.name === '社交' ? 'orange' : 'cyan';
+                                 cat.name === '社交' ? 'orange' :
+                                 cat.name === '产品' ? 'indigo' : 'cyan';
 
             return (
               <Paper key={cat.name} withBorder p="md" radius="md" bg={`${categoryColor}.0`}>

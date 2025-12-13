@@ -1,4 +1,4 @@
-import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button, ActionIcon, Text, MultiSelect, Badge } from '@mantine/core';
+import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button, ActionIcon, Text, Badge, Chip } from '@mantine/core';
 import { DatePickerInput, TimeInput } from '@mantine/dates';
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
@@ -163,23 +163,22 @@ export function TaskDetailPanel() {
           onChange={(value) => patchTask({ quadrant: value as any })}
         />
 
-        <MultiSelect
-          label="标签（可多选）"
-          placeholder="选择标签"
-          data={[
-            '生活',
-            '工作',
-            '学习',
-            '创作',
-            '健康',
-            '社交',
-          ]}
-          value={(task?.categories as any) || []}
-          searchable={false}
-          clearable
-          comboboxProps={{ zIndex: 20000, withinPortal: true }}
-          onChange={(values) => patchTask({ categories: values as any })}
-        />
+        <div>
+          <Text size="sm" fw={500} mb={6}>标签</Text>
+          <Chip.Group
+            multiple
+            value={(task?.categories as any) || []}
+            onChange={(values) => patchTask({ categories: values as any })}
+          >
+            <Group gap="xs">
+              {['生活','工作','学习','创作','健康','社交','产品'].map((t) => (
+                <Chip key={t} value={t} variant="light" size="sm">
+                  {t}
+                </Chip>
+              ))}
+            </Group>
+          </Chip.Group>
+        </div>
 
         {/* 预期完成时间无需手动配置：
             列表展示基于任务日期推导（单日为当日 23:59:59），
