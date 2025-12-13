@@ -9,6 +9,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AppLayout } from './layouts/AppLayout';
 import { AllPage } from './pages/All/AllPage';
 import AnalysisPage from './pages/Analysis/AnalysisPage';
+import AbandonedPage from './pages/Abandoned/AbandonedPage';
 import { CalendarPage } from './pages/Calendar/CalendarPage';
 import { InboxPage } from './pages/Inbox/InboxPage';
 
@@ -25,6 +26,7 @@ function App() {
               <Route path="all" element={<AllPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="analysis" element={<AnalysisPage />} />
+              <Route path="abandoned" element={<AbandonedPage />} />
             </Route>
           </Routes>
         </Router>

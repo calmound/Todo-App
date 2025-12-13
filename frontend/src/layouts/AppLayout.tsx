@@ -2,7 +2,7 @@ import { AppShell, Burger, Group, NavLink, ActionIcon, Tooltip } from '@mantine/
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMantineTheme } from '@mantine/core';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { IconCalendar, IconListCheck, IconDownload, IconChartBar } from '@tabler/icons-react';
+import { IconCalendar, IconListCheck, IconDownload, IconChartBar, IconArchiveOff } from '@tabler/icons-react';
 import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
 import { TaskDetailPanel } from '../components/TaskDetail/TaskDetailPanel';
 import { tasksApi } from '../api/tasks';
@@ -19,6 +19,7 @@ function LayoutInner() {
     { path: '/all', label: '任务', icon: IconListCheck },
     { path: '/calendar', label: '日历', icon: IconCalendar },
     { path: '/analysis', label: '分析', icon: IconChartBar },
+    { path: '/abandoned', label: '已放弃', icon: IconArchiveOff },
   ];
 
   const handleExport = async () => {
