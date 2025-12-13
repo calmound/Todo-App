@@ -1,5 +1,6 @@
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
+import '@mantine/charts/styles.css';
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import dayjs from 'dayjs';
@@ -7,6 +8,7 @@ import 'dayjs/locale/zh-cn';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { AllPage } from './pages/All/AllPage';
+import AnalysisPage from './pages/Analysis/AnalysisPage';
 import { CalendarPage } from './pages/Calendar/CalendarPage';
 import { InboxPage } from './pages/Inbox/InboxPage';
 
@@ -22,6 +24,7 @@ function App() {
               <Route path="inbox" element={<InboxPage />} />
               <Route path="all" element={<AllPage />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="analysis" element={<AnalysisPage />} />
             </Route>
           </Routes>
         </Router>

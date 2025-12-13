@@ -1,4 +1,4 @@
-import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button, ActionIcon } from '@mantine/core';
+import { TextInput, Textarea, Group, Select, Stack, SegmentedControl, Button, ActionIcon, Text, MultiSelect, Badge } from '@mantine/core';
 import { DatePickerInput, TimeInput } from '@mantine/dates';
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
@@ -91,11 +91,13 @@ export function TaskDetailPanel() {
             if (toRange) {
               const d = task?.date || dayjs().format('YYYY-MM-DD');
               // 切到周期：清空单日日期（null），设置起止为同一天
-              patchTask({ date: null, rangeStart: d, rangeEnd: d });
+              const dueAt = dayjs(d).endOf('day').toISOString();
+              patchTask({ date: null, rangeStart: d, rangeEnd: d, dueAt });
             } else {
               const d = task?.rangeStart || dayjs().format('YYYY-MM-DD');
               // 切到单日：设置单日日期，并清空起止（null）
-              patchTask({ date: d, rangeStart: null, rangeEnd: null });
+              const dueAt = dayjs(d).endOf('day').toISOString();
+              patchTask({ date: d, rangeStart: null, rangeEnd: null, dueAt });
             }
           }}
         />
@@ -108,7 +110,13 @@ export function TaskDetailPanel() {
               popoverProps={{ withinPortal: true, zIndex: 20000 }}
               locale="zh-cn"
               value={task?.rangeStart ? new Date(task.rangeStart) : null}
-              onChange={(date) => patchTask({ rangeStart: date ? dayjs(date).format('YYYY-MM-DD') : null })}
+              onChange={(date) => {
+                const d = date ? dayjs(date).format('YYYY-MM-DD') : null;
+                // 当修改开始日期时，dueAt 仍以结束日期为准；若无结束日期，则以开始日期为准
+                const end = task?.rangeEnd || d;
+                const dueAt = end ? dayjs(end).endOf('day').toISOString() : null;
+                patchTask({ rangeStart: d, dueAt });
+              }}
             />
             <DatePickerInput
               label="结束日期"
@@ -116,7 +124,11 @@ export function TaskDetailPanel() {
               popoverProps={{ withinPortal: true, zIndex: 20000 }}
               locale="zh-cn"
               value={task?.rangeEnd ? new Date(task.rangeEnd) : null}
-              onChange={(date) => patchTask({ rangeEnd: date ? dayjs(date).format('YYYY-MM-DD') : null })}
+              onChange={(date) => {
+                const d = date ? dayjs(date).format('YYYY-MM-DD') : null;
+                const dueAt = d ? dayjs(d).endOf('day').toISOString() : null;
+                patchTask({ rangeEnd: d, dueAt });
+              }}
             />
           </Group>
         ) : (
@@ -126,7 +138,11 @@ export function TaskDetailPanel() {
             popoverProps={{ withinPortal: true, zIndex: 20000 }}
             locale="zh-cn"
             value={task?.date ? new Date(task.date) : null}
-            onChange={(date) => patchTask({ date: date ? dayjs(date).format('YYYY-MM-DD') : null })}
+            onChange={(date) => {
+              const dateStr = date ? dayjs(date).format('YYYY-MM-DD') : null;
+              const dueAt = date ? dayjs(date).endOf('day').toISOString() : null;
+              patchTask({ date: dateStr, dueAt });
+            }}
           />
         )}
 
@@ -146,6 +162,37 @@ export function TaskDetailPanel() {
           comboboxProps={{ zIndex: 20000, withinPortal: true }}
           onChange={(value) => patchTask({ quadrant: value as any })}
         />
+
+        <MultiSelect
+          label="标签（可多选）"
+          placeholder="选择标签"
+          data={[
+            '生活',
+            '工作',
+            '学习',
+            '创作',
+            '健康',
+            '社交',
+          ]}
+          value={(task?.categories as any) || []}
+          searchable={false}
+          clearable
+          comboboxProps={{ zIndex: 20000, withinPortal: true }}
+          onChange={(values) => patchTask({ categories: values as any })}
+        />
+
+        {/* 预期完成时间无需手动配置：
+            列表展示基于任务日期推导（单日为当日 23:59:59），
+            详情面板不提供单独编辑入口。*/}
+
+        {task?.completedAt && (
+          <div>
+            <Text size="sm" fw={500} c="dimmed" mb={4}>实际完成时间</Text>
+            <Text size="sm" c="dimmed">
+              {dayjs(task.completedAt).format('YYYY-MM-DD HH:mm:ss')}
+            </Text>
+          </div>
+        )}
 
         {/* Danger zone at bottom */}
         <div style={{ position: 'sticky', bottom: 0, background: '#fff', paddingTop: 8, paddingBottom: 8 }}>

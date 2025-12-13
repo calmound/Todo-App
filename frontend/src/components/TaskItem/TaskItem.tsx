@@ -1,5 +1,5 @@
 import { Checkbox, Paper, Text, Group, Badge, ActionIcon, Menu, TextInput } from '@mantine/core';
-import { IconTrash, IconClock, IconFlag, IconCalendar, IconChevronRight, IconChevronDown, IconPlus, IconRepeat } from '@tabler/icons-react';
+import { IconTrash, IconClock, IconFlag, IconCalendar, IconChevronRight, IconChevronDown, IconPlus, IconRepeat, IconBan, IconAlertCircle } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
@@ -62,6 +62,7 @@ export function TaskItem({
   }, [task.title, selected]);
   const checkboxColor = () => {
     if (task.status === 'done') return 'gray';
+    if (task.status === 'abandoned') return 'orange';
     switch (task.quadrant) {
       case 'IU':
         return 'red';
@@ -77,6 +78,7 @@ export function TaskItem({
 
   const checkboxBorderColor = () => {
     if (task.status === 'done') return '#ced4da';
+    if (task.status === 'abandoned') return '#fd7e14'; // 橙色
     switch (task.quadrant) {
       case 'IU':
         return '#ff6b6b'; // 鲜艳红
@@ -118,10 +120,23 @@ export function TaskItem({
   };
 
   const isOverdue = () => {
-    if (!task.date || task.status === 'done') return false;
-    const today = dayjs().startOf('day');
-    const taskDate = dayjs(task.date).startOf('day');
-    return taskDate.isBefore(today, 'day');
+    if (task.status === 'done' || task.status === 'abandoned') return false;
+    if (task.date) {
+      const today = dayjs().startOf('day');
+      const taskDate = dayjs(task.date).startOf('day');
+      if (taskDate.isBefore(today, 'day')) return true;
+    }
+    return false;
+  };
+
+  const isDeadlineOverdue = () => {
+    if (task.status === 'done' || task.status === 'abandoned') return false;
+    if (task.dueAt) {
+      const now = dayjs();
+      const deadline = dayjs(task.dueAt);
+      return deadline.isBefore(now);
+    }
+    return false;
   };
 
   if (compact) {
@@ -147,10 +162,11 @@ export function TaskItem({
               padding: '6px 12px',
               paddingLeft: `${12 + level * 32}px`, // 子任务缩进
               borderBottom: '1px solid #f1f3f5',
-              backgroundColor: selected ? '#e7f5ff' : task.status === 'done' ? '#f9fafb' : '#fff',
+              backgroundColor: selected ? '#e7f5ff' : task.status === 'done' ? '#f9fafb' : task.status === 'abandoned' ? '#fff4e6' : '#fff',
               borderLeft: selected ? '3px solid #228be6' : '3px solid transparent',
               transition: 'all 0.15s ease',
               userSelect: 'none',
+              opacity: task.status === 'abandoned' ? 0.7 : 1,
             }}
           onClick={(e) => {
             onClick(task);
@@ -249,13 +265,17 @@ export function TaskItem({
                   fontSize: '0.875rem',
                   fontWeight: 500,
                   caretColor: editing ? undefined : 'transparent',
+                  textDecoration: task.status === 'abandoned' ? 'line-through' : 'none',
                 },
               }}
               style={{ flex: 1, minWidth: 0 }}
             />
           </Group>
-          {/* 右侧紧凑元素组：周期图标、进度、日期 */}
+          {/* 右侧紧凑元素组：周期图标、进度、日期、逾期标记 */}
           <Group gap={8} wrap="nowrap" style={{ alignItems: 'center', userSelect: 'none' }}>
+            {isDeadlineOverdue() && (
+              <IconAlertCircle size={14} color="#fa5252" style={{ opacity: 0.9 }} />
+            )}
             {task.rangeStart && task.rangeEnd && (
               <IconRepeat size={14} color="#ae3ec9" style={{ opacity: 0.9 }} />
             )}
@@ -349,6 +369,20 @@ export function TaskItem({
               <Menu.Divider />
             </>
           )}
+          {task.status !== 'abandoned' && (
+            <Menu.Item
+              color="orange"
+              leftSection={<IconBan size={14} />}
+              onClick={async (e) => {
+                e.stopPropagation();
+                setContextMenuOpened(false);
+                const updated = await tasksApi.patchTask(task.id, { status: 'abandoned' });
+                onPatched?.(updated);
+              }}
+            >
+              放弃任务
+            </Menu.Item>
+          )}
           <Menu.Item
             color="red"
             leftSection={<IconTrash size={14} />}
@@ -381,11 +415,12 @@ export function TaskItem({
           pl={`${16 + level * 32}px`}
           withBorder
           style={{
-            backgroundColor: selected ? '#e7f5ff' : undefined,
+            backgroundColor: selected ? '#e7f5ff' : task.status === 'abandoned' ? '#fff4e6' : undefined,
             borderColor: selected ? '#228be6' : undefined,
             borderWidth: selected ? '2px' : undefined,
             transition: 'all 0.15s ease',
             userSelect: 'none',
+            opacity: task.status === 'abandoned' ? 0.7 : 1,
           }}
           onClick={(e) => {
             onClick(task);
@@ -489,6 +524,7 @@ export function TaskItem({
                   fontWeight: 500,
                   fontSize: '1rem',
                   caretColor: editing ? undefined : 'transparent',
+                  textDecoration: task.status === 'abandoned' ? 'line-through' : 'none',
                 },
               }}
               style={{ flex: 1, minWidth: 0 }}
@@ -533,11 +569,24 @@ export function TaskItem({
                   {task.quadrant === 'NN' && '不重要不紧急'}
                 </Badge>
               )}
+              {/* 标签（多选） */}
+              {Array.isArray(task.categories) && task.categories.length > 0 && (
+                <Group gap={4} wrap="wrap">
+                  {task.categories.map((c) => (
+                    <Badge key={c} size="xs" variant="light" color="gray">
+                      {c}
+                    </Badge>
+                  ))}
+                </Group>
+              )}
             </Group>
           </Group>
         <Group gap="md">
           {showMeta && (
             <Group gap={8}>
+              {isDeadlineOverdue() && (
+                <IconAlertCircle size={14} color="#fa5252" style={{ opacity: 0.9 }} />
+              )}
               <Text size="xs" c={task.status === 'done' ? 'dimmed' : isOverdue() ? 'red.6' : 'blue.6'}>
                 {formatDateMeta()}
               </Text>
@@ -632,6 +681,20 @@ export function TaskItem({
             </Menu.Item>
             <Menu.Divider />
           </>
+        )}
+        {task.status !== 'abandoned' && (
+          <Menu.Item
+            color="orange"
+            leftSection={<IconBan size={14} />}
+            onClick={async (e) => {
+              e.stopPropagation();
+              setContextMenuOpened(false);
+              const updated = await tasksApi.patchTask(task.id, { status: 'abandoned' });
+              onPatched?.(updated);
+            }}
+          >
+            放弃任务
+          </Menu.Item>
         )}
         <Menu.Item
           color="red"

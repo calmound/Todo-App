@@ -69,19 +69,20 @@ export function InboxPage() {
     if (!task) return;
 
     const newStatus = task.status === 'done' ? 'pending' : 'done';
+    const completedAt = newStatus === 'done' ? new Date().toISOString() : null;
 
     // 乐观更新：立即更新本地状态
     setTasks((prevTasks) =>
-      prevTasks.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
+      prevTasks.map((t) => (t.id === id ? { ...t, status: newStatus, completedAt } : t))
     );
 
     try {
-      await tasksApi.patchTask(id, { status: newStatus });
+      await tasksApi.patchTask(id, { status: newStatus, completedAt });
     } catch (error) {
       console.error('Failed to toggle task:', error);
       // 如果失败，回滚状态
       setTasks((prevTasks) =>
-        prevTasks.map((t) => (t.id === id ? { ...t, status: task.status } : t))
+        prevTasks.map((t) => (t.id === id ? { ...t, status: task.status, completedAt: task.completedAt } : t))
       );
     }
   };
@@ -143,6 +144,9 @@ export function InboxPage() {
       const existingSubtasks = tasks.filter((t) => t.parentId === parentId);
       const order = existingSubtasks.length;
 
+      const date = dayjs().format('YYYY-MM-DD');
+      const dueAt = dayjs().endOf('day').toISOString(); // 默认为今天结束时间
+
       // 创建一个新的空子任务
       const newSubtask = await tasksApi.createTask({
         title: '',
@@ -150,7 +154,8 @@ export function InboxPage() {
         order,
         status: 'pending',
         quadrant: parentTask?.quadrant || 'IN',
-        date: dayjs().format('YYYY-MM-DD'), // 默认为今天
+        date, // 默认为今天
+        dueAt, // 默认为今天结束时间
       });
 
       // 添加到任务列表
@@ -201,7 +206,9 @@ export function InboxPage() {
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      const newTask = await tasksApi.createTask({ title, date });
+      // 如果有日期，默认将 dueAt 设为该日期的结束时间（23:59:59）
+      const dueAt = date ? dayjs(date).endOf('day').toISOString() : undefined;
+      const newTask = await tasksApi.createTask({ title, date, dueAt });
       // 乐观更新：直接添加新任务到列表
       setTasks((prevTasks) => [...prevTasks, newTask]);
       // 设置选中状态并自动打开任务详情
@@ -227,7 +234,10 @@ export function InboxPage() {
         const today = dayjs().format('YYYY-MM-DD');
         try {
           await Promise.all(
-            overdueTasks.map((task) => tasksApi.patchTask(task.id, { date: today }))
+            overdueTasks.map((task) => {
+              const dueAt = dayjs(today).endOf('day').toISOString();
+              return tasksApi.patchTask(task.id, { date: today, dueAt });
+            })
           );
           fetchTasks();
         } catch (error) {

@@ -23,8 +23,15 @@ model Task {
   startTime   String?     // 'HH:mm'
   endTime     String?     // 'HH:mm'
 
-  status      String      @default("pending") // pending | done
+  status      TaskStatus  @default(pending)
   quadrant    Quadrant    @default(IN)
+
+  // 标签（多选）
+  categories  String?     // JSON 存储的标签数组，如 '["工作","学习"]'
+
+  // 时间统计
+  dueAt       DateTime?   // 预计/期望/计划的完成时间（Deadline）
+  completedAt DateTime?   // 任务实际完成的时间
 
   // 子任务支持
   parentId    Int?        // 父任务ID，null 表示主任务
@@ -39,6 +46,13 @@ model Task {
   @@index([rangeStart])
   @@index([rangeEnd])
   @@index([parentId])
+}
+
+// 任务状态
+enum TaskStatus {
+  pending   // 待办
+  done      // 已完成
+  abandoned // 已放弃
 }
 
 // 任务四象限

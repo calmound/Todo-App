@@ -1,0 +1,113 @@
+{
+  "exportDate": "2025-12-13T06:05:13.708Z",
+  "version": "1.0",
+  "tasks": [
+    {
+      "id": 19,
+      "title": "新任务2",
+      "description": null,
+      "date": "2025-12-03",
+      "rangeStart": null,
+      "rangeEnd": null,
+      "allDay": false,
+      "startTime": null,
+      "endTime": null,
+      "status": "done",
+      "quadrant": "IU",
+      "categories": [
+        "生活"
+      ],
+      "dueAt": "2025-12-03T15:59:59.999Z",
+      "completedAt": "2025-12-13T05:41:39.481Z",
+      "parentId": null,
+      "order": 0,
+      "createdAt": "2025-12-13T01:10:07.908Z",
+      "updatedAt": "2025-12-13T05:41:39.499Z"
+    },
+    {
+      "id": 21,
+      "title": "飒飒",
+      "description": null,
+      "date": "2025-12-12",
+      "rangeStart": null,
+      "rangeEnd": null,
+      "allDay": false,
+      "startTime": null,
+      "endTime": null,
+      "status": "pending",
+      "quadrant": "IN",
+      "categories": null,
+      "dueAt": "2025-12-12T15:59:59.999Z",
+      "completedAt": null,
+      "parentId": null,
+      "order": 0,
+      "createdAt": "2025-12-13T05:53:33.577Z",
+      "updatedAt": "2025-12-13T05:53:36.623Z"
+    },
+    {
+      "id": 22,
+      "title": "fdsfd",
+      "description": null,
+      "date": "2025-12-12",
+      "rangeStart": null,
+      "rangeEnd": null,
+      "allDay": false,
+      "startTime": null,
+      "endTime": null,
+      "status": "done",
+      "quadrant": "IN",
+      "categories": null,
+      "dueAt": "2025-12-12T15:59:59.999Z",
+      "completedAt": "2025-12-13T05:53:43.223Z",
+      "parentId": null,
+      "order": 0,
+      "createdAt": "2025-12-13T05:53:39.460Z",
+      "updatedAt": "2025-12-13T05:53:43.226Z"
+    },
+    {
+      "id": 18,
+      "title": "新任务1",
+      "description": null,
+      "date": "2025-12-13",
+      "rangeStart": null,
+      "rangeEnd": null,
+      "allDay": false,
+      "startTime": null,
+      "endTime": null,
+      "status": "done",
+      "quadrant": "IN",
+      "categories": [
+        "工作"
+      ],
+      "dueAt": null,
+      "completedAt": "2025-12-13T06:04:51.111Z",
+      "parentId": null,
+      "order": 0,
+      "createdAt": "2025-12-13T01:10:04.865Z",
+      "updatedAt": "2025-12-13T06:04:51.116Z"
+    },
+    {
+      "id": 20,
+      "title": "分类12",
+      "description": null,
+      "date": "2025-12-13",
+      "rangeStart": null,
+      "rangeEnd": null,
+      "allDay": false,
+      "startTime": null,
+      "endTime": null,
+      "status": "done",
+      "quadrant": "IN",
+      "categories": [
+        "学习",
+        "创作"
+      ],
+      "dueAt": null,
+      "completedAt": "2025-12-13T06:05:06.789Z",
+      "parentId": null,
+      "order": 0,
+      "createdAt": "2025-12-13T05:49:06.620Z",
+      "updatedAt": "2025-12-13T06:05:06.794Z"
+    }
+  ]
+}

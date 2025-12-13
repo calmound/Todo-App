@@ -57,23 +57,24 @@ export function CalendarPage() {
     }
 
     const newStatus = task.status === 'done' ? 'pending' : 'done';
+    const completedAt = newStatus === 'done' ? new Date().toISOString() : null;
     console.log('[DEBUG] Toggle status from', task.status, 'to', newStatus);
 
     // 乐观更新：立即更新本地状态
     setTasks((prevTasks) =>
-      prevTasks.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
+      prevTasks.map((t) => (t.id === id ? { ...t, status: newStatus, completedAt } : t))
     );
     console.log('[DEBUG] Local state updated optimistically');
 
     try {
       console.log('[DEBUG] Sending PATCH request...');
-      await tasksApi.patchTask(id, { status: newStatus });
+      await tasksApi.patchTask(id, { status: newStatus, completedAt });
       console.log('[DEBUG] PATCH request successful');
     } catch (error) {
       console.error('Failed to toggle task:', error);
       // 如果失败，回滚状态
       setTasks((prevTasks) =>
-        prevTasks.map((t) => (t.id === id ? { ...t, status: task.status } : t))
+        prevTasks.map((t) => (t.id === id ? { ...t, status: task.status, completedAt: task.completedAt } : t))
       );
       console.log('[DEBUG] State rolled back due to error');
     }
@@ -94,7 +95,8 @@ export function CalendarPage() {
         await tasksApi.updateTask(taskId, input);
       } else {
         const dateToUse = input.date || dayjs(selectedDate).format('YYYY-MM-DD');
-        await tasksApi.createTask({ ...input, date: dateToUse });
+        const dueAt = dateToUse ? dayjs(dateToUse).endOf('day').toISOString() : undefined;
+        await tasksApi.createTask({ ...input, date: dateToUse, dueAt });
       }
       fetchTasks();
     } catch (error) {
@@ -114,7 +116,9 @@ export function CalendarPage() {
 
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      const newTask = await tasksApi.createTask({ title, date });
+      // 如果有日期，默认将 dueAt 设为该日期的结束时间（23:59:59）
+      const dueAt = date ? dayjs(date).endOf('day').toISOString() : undefined;
+      const newTask = await tasksApi.createTask({ title, date, dueAt });
       // 乐观更新：直接添加新任务到列表
       setTasks((prevTasks) => [...prevTasks, newTask]);
       // 自动打开任务详情
