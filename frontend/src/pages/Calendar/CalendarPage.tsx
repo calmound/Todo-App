@@ -270,18 +270,20 @@ function MonthGrid({ currentMonth, onSelectDate, tasks, onToggle, onClickTask }:
   const inCurrentMonth = (date: Date) => dayjs(date).isSame(currentMonth, 'month');
 
   const quadColor = (t: Task) => {
-    // 使用鲜艳的高饱和度配色，让视觉更抢眼
-    if (t.status === 'done') return { bg: '#e9ecef', text: '#6c757d', border: '#ced4da' };
+    // 优化后的配色：柔和背景 + 深色文字，更现代、舒适
+    if (t.status === 'done') {
+      return { bg: '#F8F9FA', text: '#ADB5BD', border: '#E9ECEF' }; // 极淡灰
+    }
     switch (t.quadrant) {
-      case 'IU':
-        return { bg: '#ff6b6b', text: '#ffffff', border: '#fa5252' }; // 鲜艳红
-      case 'IN':
-        return { bg: '#ffd43b', text: '#000000', border: '#fcc419' }; // 鲜艳黄
-      case 'NU':
-        return { bg: '#51cf66', text: '#ffffff', border: '#40c057' }; // 鲜艳绿
-      case 'NN':
+      case 'IU': // 重要紧急 - 柔和红
+        return { bg: '#FFE3E3', text: '#C92A2A', border: 'transparent' };
+      case 'IN': // 重要不紧急 - 柔和黄/橙
+        return { bg: '#FFF3BF', text: '#D9480F', border: 'transparent' };
+      case 'NU': // 不重要紧急 - 柔和青/绿
+        return { bg: '#E6FCF5', text: '#087F5B', border: 'transparent' };
+      case 'NN': // 不重要不紧急 - 柔和蓝
       default:
-        return { bg: '#74c0fc', text: '#ffffff', border: '#4dabf7' }; // 鲜艳蓝
+        return { bg: '#E7F5FF', text: '#1971C2', border: 'transparent' };
     }
   };
 
@@ -422,12 +424,12 @@ function DayTimeline({ date, tasks, onClickTask }: DayTimelineProps) {
   };
 
   const quadColor = (t: Task) => {
-    if (t.status === 'done') return { bg: '#e9ecef', text: '#6c757d', border: '#ced4da' };
+    if (t.status === 'done') return { bg: '#F8F9FA', text: '#ADB5BD', border: '#E9ECEF' };
     switch (t.quadrant) {
-      case 'IU': return { bg: '#ff6b6b', text: '#ffffff', border: '#fa5252' };
-      case 'IN': return { bg: '#ffd43b', text: '#000000', border: '#fcc419' };
-      case 'NU': return { bg: '#51cf66', text: '#ffffff', border: '#40c057' };
-      default: return { bg: '#74c0fc', text: '#ffffff', border: '#4dabf7' };
+      case 'IU': return { bg: '#FFE3E3', text: '#C92A2A', border: 'transparent' };
+      case 'IN': return { bg: '#FFF3BF', text: '#D9480F', border: 'transparent' };
+      case 'NU': return { bg: '#E6FCF5', text: '#087F5B', border: 'transparent' };
+      default: return { bg: '#E7F5FF', text: '#1971C2', border: 'transparent' };
     }
   };
 
@@ -518,12 +520,12 @@ function WeekColumns({ date, tasks, onClickTask, onSelectDate }: WeekColumnsProp
   };
 
   const quadColor = (t: Task) => {
-    if (t.status === 'done') return { bg: '#e9ecef', text: '#6c757d', border: '#ced4da' };
+    if (t.status === 'done') return { bg: '#F8F9FA', text: '#ADB5BD', border: '#E9ECEF' };
     switch (t.quadrant) {
-      case 'IU': return { bg: '#ff6b6b', text: '#ffffff', border: '#fa5252' };
-      case 'IN': return { bg: '#ffd43b', text: '#000000', border: '#fcc419' };
-      case 'NU': return { bg: '#51cf66', text: '#ffffff', border: '#40c057' };
-      default: return { bg: '#74c0fc', text: '#ffffff', border: '#4dabf7' };
+      case 'IU': return { bg: '#FFE3E3', text: '#C92A2A', border: 'transparent' };
+      case 'IN': return { bg: '#FFF3BF', text: '#D9480F', border: 'transparent' };
+      case 'NU': return { bg: '#E6FCF5', text: '#087F5B', border: 'transparent' };
+      default: return { bg: '#E7F5FF', text: '#1971C2', border: 'transparent' };
     }
   };
 
