@@ -2,9 +2,25 @@ import { useState, useEffect } from 'react';
 import { Title, Stack, Text, Loader, Center, Button } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import dayjs from 'dayjs';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import type { Task, CreateTaskInput } from '../../types/task';
 import { tasksApi } from '../../api/tasks';
 import { TaskItem } from '../../components/TaskItem/TaskItem';
+import { SortableTaskItem } from '../../components/TaskItem/SortableTaskItem';
 // Removed drawer usage; use right panel instead
 import { QuickInput } from '../../components/QuickInput/QuickInput';
 import { TaskGroup } from '../../components/TaskGroup/TaskGroup';
@@ -33,6 +49,90 @@ export function AllPage() {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  // 拖拽传感器配置
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // 处理拖拽结束
+  const handleDragEnd = async (event: DragEndEvent, tasksInGroup: Task[]) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // 先检查是否在顶层任务组中
+    let oldIndex = tasksInGroup.findIndex((t) => t.id === active.id);
+    let newIndex = tasksInGroup.findIndex((t) => t.id === over.id);
+
+    let targetTasks = tasksInGroup;
+
+    // 如果不在顶层任务组中，说明是子任务拖拽
+    if (oldIndex === -1 || newIndex === -1) {
+      // 查找被拖拽的任务
+      const draggedTask = tasks.find((t) => t.id === active.id);
+      const targetTask = tasks.find((t) => t.id === over.id);
+
+      if (!draggedTask || !targetTask) {
+        return;
+      }
+
+      // 检查是否是同一个父任务下的子任务
+      if (draggedTask.parentId !== targetTask.parentId) {
+        return;
+      }
+
+      // 获取同一父任务下的所有子任务
+      const siblings = tasks.filter((t) => t.parentId === draggedTask.parentId);
+      // 按 order 排序
+      siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      targetTasks = siblings;
+      oldIndex = siblings.findIndex((t) => t.id === active.id);
+      newIndex = siblings.findIndex((t) => t.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return;
+      }
+    }
+
+    // 重新排序任务
+    const reorderedTasks = arrayMove(targetTasks, oldIndex, newIndex);
+
+    // 更新所有任务的 order 字段
+    const updates = reorderedTasks.map((task, index) => ({
+      id: task.id,
+      order: index,
+    }));
+
+    // 乐观更新本地状态
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
+        const update = updates.find((u) => u.id === t.id);
+        return update ? { ...t, order: update.order } : t;
+      })
+    );
+
+    // 批量更新后端
+    try {
+      await Promise.all(
+        updates.map((update) => tasksApi.patchTask(update.id, { order: update.order }))
+      );
+      // 如果是子任务拖拽，通知详情面板刷新
+      if (targetTasks !== tasksInGroup) {
+        rightPanel.triggerRefresh();
+      }
+    } catch (error) {
+      console.error('Failed to update task order:', error);
+      // 失败时重新获取数据
+      fetchTasks();
+    }
+  };
 
   const handleToggle = async (id: number) => {
     console.log('[AllPage DEBUG] handleToggle called with id:', id);
@@ -138,7 +238,8 @@ export function AllPage() {
       });
 
       // 添加到任务列表
-      setTasks((prevTasks) => [...prevTasks, newSubtask]);
+      const updatedTasks = [...tasks, newSubtask];
+      setTasks(updatedTasks);
 
       // 确保父任务展开
       setExpandedTaskIds((prev) => {
@@ -152,6 +253,7 @@ export function AllPage() {
       rightPanel.openTask(newSubtask, {
         onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
         onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+        allTasks: updatedTasks,
       });
     } catch (error) {
       console.error('Failed to add subtask:', error);
@@ -176,6 +278,7 @@ export function AllPage() {
     rightPanel.openTask(task, {
       onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
       onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+      allTasks: tasks, // 传入所有任务，避免重复请求
     });
   };
 
@@ -187,12 +290,14 @@ export function AllPage() {
       const dueAt = date ? dayjs(date).endOf('day').toISOString() : undefined;
       const newTask = await tasksApi.createTask({ title, date, dueAt });
       // 乐观更新：直接添加新任务到列表
-      setTasks((prevTasks) => [...prevTasks, newTask]);
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
       // 自动打开任务详情
       setSelectedTaskId(newTask.id);
       rightPanel.openTask(newTask, {
         onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
         onDeleted: (id) => setTasks((prev) => prev.filter((x) => x.id !== id)),
+        allTasks: updatedTasks,
       });
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -243,12 +348,12 @@ export function AllPage() {
     const aq = quadWeight(a.quadrant);
     const bq = quadWeight(b.quadrant);
     if (aq !== bq) return aq - bq;
-    const ad = a.date || a.rangeStart || '';
-    const bd = b.date || b.rangeStart || '';
-    if (ad !== bd) return ad.localeCompare(bd);
-    const at = a.startTime || '';
-    const bt = b.startTime || '';
-    return at.localeCompare(bt);
+    // Then by order (manual sorting via drag and drop)
+    const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    // Finally by creation time (newest first) - comparing timestamps
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   };
 
   // 只处理顶层任务（不包括子任务）
@@ -270,28 +375,28 @@ export function AllPage() {
   const completedTopTasks = topLevelTasks.filter((t) => t.status === 'done').sort(sortTasks);
 
   // 构建树形结构并扁平化（用于渲染）
-  const todayTree = buildTaskTree(tasks.filter((t) =>
-    todayTopTasks.find(top => top.id === t.id) ||
-    todayTopTasks.find(top => t.parentId === top.id)
-  ));
+  // 为了保持排序顺序，需要按照排序后的顶层任务顺序重新组织任务列表
+  const buildSortedTree = (sortedTopTasks: Task[]) => {
+    const result: Task[] = [];
+    sortedTopTasks.forEach(topTask => {
+      result.push(topTask);
+      // 添加该顶层任务的所有子任务
+      const children = tasks.filter(t => t.parentId === topTask.id);
+      result.push(...children);
+    });
+    return buildTaskTree(result);
+  };
+
+  const todayTree = buildSortedTree(todayTopTasks);
   const todayFlat = flattenTaskTree(todayTree, expandedTaskIds);
 
-  const overdueTree = buildTaskTree(tasks.filter((t) =>
-    overdueTopTasks.find(top => top.id === t.id) ||
-    overdueTopTasks.find(top => t.parentId === top.id)
-  ));
+  const overdueTree = buildSortedTree(overdueTopTasks);
   const overdueFlat = flattenTaskTree(overdueTree, expandedTaskIds);
 
-  const futureTree = buildTaskTree(tasks.filter((t) =>
-    futureTopTasks.find(top => top.id === t.id) ||
-    futureTopTasks.find(top => t.parentId === top.id)
-  ));
+  const futureTree = buildSortedTree(futureTopTasks);
   const futureFlat = flattenTaskTree(futureTree, expandedTaskIds);
 
-  const completedTree = buildTaskTree(tasks.filter((t) =>
-    completedTopTasks.find(top => top.id === t.id) ||
-    completedTopTasks.find(top => t.parentId === top.id)
-  ));
+  const completedTree = buildSortedTree(completedTopTasks);
   const completedFlat = flattenTaskTree(completedTree, expandedTaskIds);
 
   if (loading) {
@@ -321,27 +426,38 @@ export function AllPage() {
                 title="今天"
                 count={todayTopTasks.length}
               >
-                {todayFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onDelete={handleDelete}
-                    onUpdateQuadrant={handleUpdateQuadrant}
-                    onClick={handleTaskClick}
-                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
-                    showMeta={true}
-                    compact={true}
-                    selected={selectedTaskId === task.id}
-                    level={level}
-                    hasChildren={hasChildren}
-                    expanded={expanded}
-                    onToggleExpand={handleToggleExpand}
-                    onAddSubtask={handleAddSubtask}
-                    completedCount={completedCount}
-                    totalCount={totalCount}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, todayTopTasks)}
+                >
+                  <SortableContext
+                    items={todayFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {todayFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                      <SortableTaskItem
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onUpdateQuadrant={handleUpdateQuadrant}
+                        onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
+                        showMeta={true}
+                        compact={true}
+                        selected={selectedTaskId === task.id}
+                        level={level}
+                        hasChildren={hasChildren}
+                        expanded={expanded}
+                        onToggleExpand={handleToggleExpand}
+                        onAddSubtask={handleAddSubtask}
+                        completedCount={completedCount}
+                        totalCount={totalCount}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TaskGroup>
             )}
 
@@ -355,27 +471,38 @@ export function AllPage() {
                   </Button>
                 }
               >
-                {overdueFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onDelete={handleDelete}
-                    onUpdateQuadrant={handleUpdateQuadrant}
-                    onClick={handleTaskClick}
-                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
-                    showMeta={true}
-                    compact={true}
-                    selected={selectedTaskId === task.id}
-                    level={level}
-                    hasChildren={hasChildren}
-                    expanded={expanded}
-                    onToggleExpand={handleToggleExpand}
-                    onAddSubtask={handleAddSubtask}
-                    completedCount={completedCount}
-                    totalCount={totalCount}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, overdueTopTasks)}
+                >
+                  <SortableContext
+                    items={overdueFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {overdueFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                      <SortableTaskItem
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onUpdateQuadrant={handleUpdateQuadrant}
+                        onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
+                        showMeta={true}
+                        compact={true}
+                        selected={selectedTaskId === task.id}
+                        level={level}
+                        hasChildren={hasChildren}
+                        expanded={expanded}
+                        onToggleExpand={handleToggleExpand}
+                        onAddSubtask={handleAddSubtask}
+                        completedCount={completedCount}
+                        totalCount={totalCount}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TaskGroup>
             )}
 
@@ -384,27 +511,38 @@ export function AllPage() {
                 title="未来"
                 count={futureTopTasks.length}
               >
-                {futureFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onDelete={handleDelete}
-                    onUpdateQuadrant={handleUpdateQuadrant}
-                    onClick={handleTaskClick}
-                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
-                    showMeta={true}
-                    compact={true}
-                    selected={selectedTaskId === task.id}
-                    level={level}
-                    hasChildren={hasChildren}
-                    expanded={expanded}
-                    onToggleExpand={handleToggleExpand}
-                    onAddSubtask={handleAddSubtask}
-                    completedCount={completedCount}
-                    totalCount={totalCount}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, futureTopTasks)}
+                >
+                  <SortableContext
+                    items={futureFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {futureFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                      <SortableTaskItem
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onUpdateQuadrant={handleUpdateQuadrant}
+                        onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
+                        showMeta={true}
+                        compact={true}
+                        selected={selectedTaskId === task.id}
+                        level={level}
+                        hasChildren={hasChildren}
+                        expanded={expanded}
+                        onToggleExpand={handleToggleExpand}
+                        onAddSubtask={handleAddSubtask}
+                        completedCount={completedCount}
+                        totalCount={totalCount}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TaskGroup>
             )}
 
@@ -414,27 +552,38 @@ export function AllPage() {
                 count={completedTopTasks.length}
                 defaultOpened={true}
               >
-                {completedFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onDelete={handleDelete}
-                    onUpdateQuadrant={handleUpdateQuadrant}
-                    onClick={handleTaskClick}
-                    onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
-                    showMeta={true}
-                    compact={true}
-                    selected={selectedTaskId === task.id}
-                    level={level}
-                    hasChildren={hasChildren}
-                    expanded={expanded}
-                    onToggleExpand={handleToggleExpand}
-                    onAddSubtask={handleAddSubtask}
-                    completedCount={completedCount}
-                    totalCount={totalCount}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, completedTopTasks)}
+                >
+                  <SortableContext
+                    items={completedFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {completedFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                      <SortableTaskItem
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onUpdateQuadrant={handleUpdateQuadrant}
+                        onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
+                        showMeta={true}
+                        compact={true}
+                        selected={selectedTaskId === task.id}
+                        level={level}
+                        hasChildren={hasChildren}
+                        expanded={expanded}
+                        onToggleExpand={handleToggleExpand}
+                        onAddSubtask={handleAddSubtask}
+                        completedCount={completedCount}
+                        totalCount={totalCount}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TaskGroup>
             )}
           </Stack>

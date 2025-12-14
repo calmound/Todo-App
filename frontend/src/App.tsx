@@ -11,6 +11,7 @@ import { AllPage } from './pages/All/AllPage';
 import AnalysisPage from './pages/Analysis/AnalysisPage';
 import AbandonedPage from './pages/Abandoned/AbandonedPage';
 import { CalendarPage } from './pages/Calendar/CalendarPage';
+import { CategoriesPage } from './pages/Categories/CategoriesPage';
 import { InboxPage } from './pages/Inbox/InboxPage';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
               <Route path="inbox" element={<InboxPage />} />
               <Route path="all" element={<AllPage />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="categories" element={<CategoriesPage />} />
               <Route path="analysis" element={<AnalysisPage />} />
               <Route path="abandoned" element={<AbandonedPage />} />
             </Route>

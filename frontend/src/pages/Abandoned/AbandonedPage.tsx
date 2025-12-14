@@ -46,7 +46,7 @@ export default function AbandonedPage() {
         </Card>
       ) : (
         <Stack>
-          {tasks.map((t) => (
+          {tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((t) => (
             <Paper key={t.id} withBorder p="md">
               <Group justify="space-between" align="flex-start">
                 <div style={{ flex: 1, minWidth: 0 }}>

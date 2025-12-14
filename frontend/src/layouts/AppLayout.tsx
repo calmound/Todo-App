@@ -1,8 +1,9 @@
 import { AppShell, Burger, Group, NavLink, ActionIcon, Tooltip } from '@mantine/core';
+import { useEffect } from 'react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMantineTheme } from '@mantine/core';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { IconCalendar, IconListCheck, IconDownload, IconChartBar, IconArchiveOff } from '@tabler/icons-react';
+import { IconCalendar, IconListCheck, IconDownload, IconChartBar, IconArchiveOff, IconTag } from '@tabler/icons-react';
 import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
 import { TaskDetailPanel } from '../components/TaskDetail/TaskDetailPanel';
 import { tasksApi } from '../api/tasks';
@@ -18,9 +19,16 @@ function LayoutInner() {
   const navItems = [
     { path: '/all', label: '任务', icon: IconListCheck },
     { path: '/calendar', label: '日历', icon: IconCalendar },
+    { path: '/categories', label: '分类', icon: IconTag },
     { path: '/analysis', label: '分析', icon: IconChartBar },
     { path: '/abandoned', label: '已放弃', icon: IconArchiveOff },
   ];
+
+  // Close right panel when route changes (switching pages)
+  useEffect(() => {
+    if (rightPanel.opened) rightPanel.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const handleExport = async () => {
     try {
@@ -75,7 +83,7 @@ function LayoutInner() {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>秒办</div>
           </Group>
-          <Tooltip label="导出数据备份">
+          <Tooltip label="导出数据备份" withArrow withinPortal zIndex={40000}>
             <ActionIcon variant="subtle" color="gray" size="lg" onClick={handleExport}>
               <IconDownload size={20} />
             </ActionIcon>

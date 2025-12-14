@@ -101,20 +101,27 @@ export function TaskItem({
     if (!task.date) return '';
     const today = dayjs().startOf('day');
     const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const tomorrow = dayjs().add(1, 'day').startOf('day');
+    const dayAfterTomorrow = dayjs().add(2, 'day').startOf('day');
     const taskDate = dayjs(task.date).startOf('day');
 
     if (taskDate.isSame(today, 'day')) {
       return '今天';
+    } else if (taskDate.isSame(tomorrow, 'day')) {
+      return '明天';
+    } else if (taskDate.isSame(dayAfterTomorrow, 'day')) {
+      return '后天';
     } else if (taskDate.isSame(yesterday, 'day')) {
       return '昨天';
     } else if (taskDate.isBefore(today, 'day')) {
       const daysAgo = today.diff(taskDate, 'day');
-      if (daysAgo <= 7) {
+      if (daysAgo <= 3) {
         return `${daysAgo}天前`;
       } else {
         return taskDate.format('M月D日');
       }
     } else {
+      // 未来的日期，超过3天显示具体日期
       return taskDate.format('M月D日');
     }
   };
@@ -277,14 +284,19 @@ export function TaskItem({
               <IconAlertCircle size={14} color="#fa5252" style={{ opacity: 0.9 }} />
             )}
             {task.rangeStart && task.rangeEnd && (
-              <IconRepeat size={14} color="#ae3ec9" style={{ opacity: 0.9 }} />
+              <Group gap={4}>
+                <IconRepeat size={14} color="#ae3ec9" style={{ opacity: 0.9 }} />
+                <Text size="xs" c="grape.6" fw={500}>
+                  {dayjs(task.rangeStart).format('M/D')}-{dayjs(task.rangeEnd).format('M/D')}
+                </Text>
+              </Group>
             )}
             {totalCount > 0 && level === 0 && (
               <Text size="xs" c="dimmed" fw={500}>
                 {completedCount}/{totalCount}
               </Text>
             )}
-            {showMeta && (
+            {showMeta && !task.rangeStart && !task.rangeEnd && (
               <Text size="xs" c={task.status === 'done' ? 'dimmed' : isOverdue() ? 'red.6' : 'blue.6'} fw={500}>
                 {formatDateMeta()}
               </Text>

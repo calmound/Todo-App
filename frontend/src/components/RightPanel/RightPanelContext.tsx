@@ -5,15 +5,19 @@ import { tasksApi } from '../../api/tasks';
 type OpenOptions = {
   onPatched?: (t: Task) => void;
   onDeleted?: (id: number) => void;
+  allTasks?: Task[]; // 传入所有任务列表，避免重复请求
 };
 
 type RightPanelContextValue = {
   opened: boolean;
   task: Task | null;
+  allTasks: Task[] | null;
   openTask: (task: Task, opts?: OpenOptions) => void;
   close: () => void;
   patchTask: (patch: UpdateTaskInput) => Promise<void>;
   deleteTask: () => Promise<void>;
+  triggerRefresh: () => void;
+  refreshKey: number;
 };
 
 const RightPanelContext = createContext<RightPanelContextValue | undefined>(undefined);
@@ -21,17 +25,21 @@ const RightPanelContext = createContext<RightPanelContextValue | undefined>(unde
 export function RightPanelProvider({ children }: { children: React.ReactNode }) {
   const [opened, setOpened] = useState(false);
   const [task, setTask] = useState<Task | null>(null);
+  const [allTasks, setAllTasks] = useState<Task[] | null>(null);
   const [callbacks, setCallbacks] = useState<OpenOptions | undefined>();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const openTask = useCallback((t: Task, opts?: OpenOptions) => {
     setOpened(true);
     setCallbacks(opts);
     setTask(t);
+    setAllTasks(opts?.allTasks || null);
   }, []);
 
   const close = useCallback(() => {
     setOpened(false);
     setTask(null);
+    setAllTasks(null);
     setCallbacks(undefined);
   }, []);
 
@@ -50,8 +58,12 @@ export function RightPanelProvider({ children }: { children: React.ReactNode }) 
     close();
   }, [task, callbacks, close]);
 
+  const triggerRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
   return (
-    <RightPanelContext.Provider value={{ opened, task, openTask, close, patchTask, deleteTask }}>
+    <RightPanelContext.Provider value={{ opened, task, allTasks, openTask, close, patchTask, deleteTask, triggerRefresh, refreshKey }}>
       {children}
     </RightPanelContext.Provider>
   );

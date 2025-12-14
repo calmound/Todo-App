@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Title, Stack, Text, Loader, Center, Button } from '@mantine/core';
+import { Title, Stack, Text, Loader, Center, Button, Tabs } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import dayjs from 'dayjs';
 import {
@@ -17,50 +17,22 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import type { Task, CreateTaskInput } from '../../types/task';
+import type { Task } from '../../types/task';
 import { tasksApi } from '../../api/tasks';
-import { TaskItem } from '../../components/TaskItem/TaskItem';
 import { SortableTaskItem } from '../../components/TaskItem/SortableTaskItem';
-// Use right-side panel instead of drawer
-import { useRightPanel } from '../../components/RightPanel/RightPanelContext';
 import { QuickInput } from '../../components/QuickInput/QuickInput';
 import { TaskGroup } from '../../components/TaskGroup/TaskGroup';
+import { useRightPanel } from '../../components/RightPanel/RightPanelContext';
 import { buildTaskTree, flattenTaskTree } from '../../utils/taskTree';
 
-const quadWeight = (q?: Task['quadrant']) => {
-  switch (q) {
-    case 'IU':
-      return 0; // 最重要最紧急
-    case 'IN':
-      return 1;
-    case 'NU':
-      return 2;
-    case 'NN':
-    default:
-      return 3;
-  }
-};
+const CATEGORIES = ['未分类', '生活', '工作', '学习', '创作', '健康', '社交', '产品'] as const;
 
-const sortTasks = (a: Task, b: Task) => {
-  const aw = a.status === 'done' ? 1 : 0;
-  const bw = b.status === 'done' ? 1 : 0;
-  if (aw !== bw) return aw - bw; // pending first
-  const aq = quadWeight(a.quadrant);
-  const bq = quadWeight(b.quadrant);
-  if (aq !== bq) return aq - bq; // quadrant priority
-  // Then by order (manual sorting via drag and drop)
-  const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
-  const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
-  if (aOrder !== bOrder) return aOrder - bOrder;
-  // Finally by creation time (newest first) - comparing timestamps
-  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-};
-
-export function InboxPage() {
+export function CategoriesPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>('未分类');
   const rightPanel = useRightPanel();
 
   const fetchTasks = async () => {
@@ -196,15 +168,8 @@ export function InboxPage() {
   };
 
   const handleUpdateQuadrant = async (id: number, quadrant: Task['quadrant']) => {
-    console.log('[InboxPage] handleUpdateQuadrant called with id:', id, 'quadrant:', quadrant);
     const task = tasks.find((t) => t.id === id);
-    if (!task) {
-      console.error('[InboxPage] Task not found in tasks array, id:', id);
-      console.log('[InboxPage] Current tasks:', tasks.map(t => ({ id: t.id, title: t.title, parentId: t.parentId })));
-      return;
-    }
-
-    console.log('[InboxPage] Found task:', task.title, 'current quadrant:', task.quadrant);
+    if (!task) return;
 
     // 乐观更新：立即更新本地状态
     setTasks((prevTasks) =>
@@ -212,9 +177,7 @@ export function InboxPage() {
     );
 
     try {
-      console.log('[InboxPage] Calling API to update quadrant...');
       await tasksApi.patchTask(id, { quadrant });
-      console.log('[InboxPage] API call successful');
     } catch (error) {
       console.error('Failed to update quadrant:', error);
       // 如果失败，回滚状态
@@ -238,37 +201,33 @@ export function InboxPage() {
 
   const handleAddSubtask = async (parentId: number) => {
     try {
-      // 获取父任务的现有子任务数量，用于设置 order
       const parentTask = tasks.find((t) => t.id === parentId);
       const existingSubtasks = tasks.filter((t) => t.parentId === parentId);
       const order = existingSubtasks.length;
 
       const date = dayjs().format('YYYY-MM-DD');
-      const dueAt = dayjs().endOf('day').toISOString(); // 默认为今天结束时间
+      const dueAt = dayjs().endOf('day').toISOString();
 
-      // 创建一个新的空子任务
       const newSubtask = await tasksApi.createTask({
         title: '',
         parentId,
         order,
         status: 'pending',
         quadrant: parentTask?.quadrant || 'IN',
-        date, // 默认为今天
-        dueAt, // 默认为今天结束时间
+        date,
+        dueAt,
+        categories: parentTask?.categories || [],
       });
 
-      // 添加到任务列表
       const updatedTasks = [...tasks, newSubtask];
       setTasks(updatedTasks);
 
-      // 确保父任务展开
       setExpandedTaskIds((prev) => {
         const newSet = new Set(prev);
         newSet.add(parentId);
         return newSet;
       });
 
-      // 自动打开新子任务的详情以便编辑
       setSelectedTaskId(newSubtask.id);
       rightPanel.openTask(newSubtask, {
         onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
@@ -277,19 +236,6 @@ export function InboxPage() {
       });
     } catch (error) {
       console.error('Failed to add subtask:', error);
-    }
-  };
-
-  const handleSave = async (input: CreateTaskInput, taskId?: number) => {
-    try {
-      if (taskId) {
-        await tasksApi.updateTask(taskId, input);
-      } else {
-        await tasksApi.createTask(input);
-      }
-      fetchTasks();
-    } catch (error) {
-      console.error('Failed to save task:', error);
     }
   };
 
@@ -302,19 +248,17 @@ export function InboxPage() {
     });
   };
 
-  const handleNewTask = () => {
-    // Creation handled by QuickInput; no drawer needed
-  };
-
   const handleQuickAdd = async (title: string, date: string) => {
     try {
-      // 如果有日期，默认将 dueAt 设为该日期的结束时间（23:59:59）
       const dueAt = date ? dayjs(date).endOf('day').toISOString() : undefined;
-      const newTask = await tasksApi.createTask({ title, date, dueAt });
-      // 乐观更新：直接添加新任务到列表
+      const newTask = await tasksApi.createTask({
+        title,
+        date,
+        dueAt,
+        categories: activeTab === '未分类' ? [] : [activeTab],
+      });
       const updatedTasks = [...tasks, newTask];
       setTasks(updatedTasks);
-      // 设置选中状态并自动打开任务详情
       setSelectedTaskId(newTask.id);
       rightPanel.openTask(newTask, {
         onPatched: (t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))),
@@ -351,6 +295,84 @@ export function InboxPage() {
     });
   };
 
+  const today = dayjs().startOf('day');
+
+  const quadWeight = (q?: Task['quadrant']) => {
+    switch (q) {
+      case 'IU': return 0;
+      case 'IN': return 1;
+      case 'NU': return 2;
+      default: return 3;
+    }
+  };
+
+  const sortTasks = (a: Task, b: Task) => {
+    const aw = a.status === 'done' ? 1 : 0;
+    const bw = b.status === 'done' ? 1 : 0;
+    if (aw !== bw) return aw - bw;
+    const aq = quadWeight(a.quadrant);
+    const bq = quadWeight(b.quadrant);
+    if (aq !== bq) return aq - bq;
+    const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  };
+
+  // 根据选中的分类筛选任务
+  const filteredTasks = tasks.filter((t) => {
+    if (t.status === 'abandoned') return false;
+
+    // 如果是"未分类"，显示没有任何分类的任务
+    if (activeTab === '未分类') {
+      return !t.categories || t.categories.length === 0;
+    }
+
+    // 其他分类正常筛选
+    return t.categories?.includes(activeTab);
+  });
+
+  // 只处理顶层任务（不包括子任务）
+  const topLevelTasks = filteredTasks.filter((t) => !t.parentId);
+
+  // 按日期分组
+  const overdueTopTasks = topLevelTasks.filter(
+    (t) => t.status === 'pending' && t.date && dayjs(t.date).isBefore(today, 'day')
+  ).sort(sortTasks);
+
+  const todayTopTasks = topLevelTasks.filter(
+    (t) => t.status === 'pending' && t.date && dayjs(t.date).isSame(today, 'day')
+  ).sort(sortTasks);
+
+  const futureTopTasks = topLevelTasks.filter(
+    (t) => t.status === 'pending' && (!t.date || dayjs(t.date).isAfter(today, 'day'))
+  ).sort(sortTasks);
+
+  const completedTopTasks = topLevelTasks.filter((t) => t.status === 'done').sort(sortTasks);
+
+  // 构建树形结构并扁平化
+  const buildSortedTree = (sortedTopTasks: Task[]) => {
+    const result: Task[] = [];
+    sortedTopTasks.forEach(topTask => {
+      result.push(topTask);
+      const children = filteredTasks.filter(t => t.parentId === topTask.id);
+      result.push(...children);
+    });
+    return buildTaskTree(result);
+  };
+
+  const todayTree = buildSortedTree(todayTopTasks);
+  const todayFlat = flattenTaskTree(todayTree, expandedTaskIds);
+
+  const overdueTree = buildSortedTree(overdueTopTasks);
+  const overdueFlat = flattenTaskTree(overdueTree, expandedTaskIds);
+
+  const futureTree = buildSortedTree(futureTopTasks);
+  const futureFlat = flattenTaskTree(futureTree, expandedTaskIds);
+
+  const completedTree = buildSortedTree(completedTopTasks);
+  const completedFlat = flattenTaskTree(completedTree, expandedTaskIds);
+
   if (loading) {
     return (
       <Center h={400}>
@@ -359,78 +381,68 @@ export function InboxPage() {
     );
   }
 
-  const today = dayjs().startOf('day');
-
-  // 只处理顶层任务（不包括子任务）
-  const topLevelTasks = tasks.filter((t) => !t.parentId);
-
-  // 分组任务
-  const overdueTopTasks = topLevelTasks.filter(
-    (t) => t.status === 'pending' && t.date && dayjs(t.date).isBefore(today, 'day')
-  ).sort(sortTasks);
-
-  const pendingTopTasks = topLevelTasks.filter(
-    (t) => t.status === 'pending' && (!t.date || !dayjs(t.date).isBefore(today, 'day'))
-  ).sort(sortTasks);
-
-  const completedTopTasks = topLevelTasks.filter((t) => t.status === 'done').sort(sortTasks);
-
-  // 构建树形结构并扁平化（用于渲染）
-  // 为了保持排序顺序，需要按照排序后的顶层任务顺序重新组织任务列表
-  const buildSortedTree = (sortedTopTasks: Task[]) => {
-    const result: Task[] = [];
-    sortedTopTasks.forEach(topTask => {
-      result.push(topTask);
-      // 添加该顶层任务的所有子任务
-      const children = tasks.filter(t => t.parentId === topTask.id);
-      result.push(...children);
-    });
-    return buildTaskTree(result);
-  };
-
-  const overdueTree = buildSortedTree(overdueTopTasks);
-  const overdueFlat = flattenTaskTree(overdueTree, expandedTaskIds);
-
-  const pendingTree = buildSortedTree(pendingTopTasks);
-  const pendingFlat = flattenTaskTree(pendingTree, expandedTaskIds);
-
-  const completedTree = buildSortedTree(completedTopTasks);
-  const completedFlat = flattenTaskTree(completedTree, expandedTaskIds);
-
   return (
-    <div>
+    <div style={{ paddingRight: 16 }}>
       <Stack gap="md">
-        <div>
-          <QuickInput onAdd={handleQuickAdd} placeholder='添加任务至"收集箱"' defaultDate={dayjs().format('YYYY-MM-DD')} />
-        </div>
+        <Title order={2}>分类</Title>
 
-        {tasks.length === 0 ? (
+        <Tabs
+          value={activeTab}
+          onChange={(value) => setActiveTab(value || '未分类')}
+          styles={{
+            tab: {
+              '&:focus': {
+                outline: 'none',
+              },
+              '&:focus-visible': {
+                outline: 'none',
+              },
+            },
+          }}
+        >
+          <Tabs.List>
+            {CATEGORIES.map((category) => (
+              <Tabs.Tab key={category} value={category}>
+                {category}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+
+        <QuickInput
+          onAdd={handleQuickAdd}
+          placeholder={`添加任务至"${activeTab}"`}
+          defaultDate={dayjs().format('YYYY-MM-DD')}
+        />
+
+        {topLevelTasks.length === 0 ? (
           <Center h={200}>
-            <Text c="dimmed">暂无任务</Text>
+            <Text c="dimmed">该分类下暂无任务</Text>
           </Center>
         ) : (
-          <Stack gap="lg">
-            {pendingFlat.length > 0 && (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event) => handleDragEnd(event, pendingTopTasks)}
-              >
-                <SortableContext
-                  items={pendingFlat.map((item) => item.task.id)}
-                  strategy={verticalListSortingStrategy}
+          <Stack gap="md">
+            {todayFlat.length > 0 && (
+              <TaskGroup title="今天" count={todayTopTasks.length}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, todayTopTasks)}
                 >
-                  <Stack gap="sm">
-                    {pendingFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                  <SortableContext
+                    items={todayFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {todayFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
                       <SortableTaskItem
                         key={task.id}
                         task={task}
                         onToggle={handleToggle}
                         onDelete={handleDelete}
                         onUpdateQuadrant={handleUpdateQuadrant}
-                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         showMeta={true}
+                        compact={true}
                         selected={selectedTaskId === task.id}
                         level={level}
                         hasChildren={hasChildren}
@@ -441,9 +453,9 @@ export function InboxPage() {
                         totalCount={totalCount}
                       />
                     ))}
-                  </Stack>
-                </SortableContext>
-              </DndContext>
+                  </SortableContext>
+                </DndContext>
+              </TaskGroup>
             )}
 
             {overdueFlat.length > 0 && (
@@ -472,9 +484,47 @@ export function InboxPage() {
                         onToggle={handleToggle}
                         onDelete={handleDelete}
                         onUpdateQuadrant={handleUpdateQuadrant}
-                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         showMeta={true}
+                        compact={true}
+                        selected={selectedTaskId === task.id}
+                        level={level}
+                        hasChildren={hasChildren}
+                        expanded={expanded}
+                        onToggleExpand={handleToggleExpand}
+                        onAddSubtask={handleAddSubtask}
+                        completedCount={completedCount}
+                        totalCount={totalCount}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </TaskGroup>
+            )}
+
+            {futureFlat.length > 0 && (
+              <TaskGroup title="未来" count={futureTopTasks.length}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleDragEnd(event, futureTopTasks)}
+                >
+                  <SortableContext
+                    items={futureFlat.map((item) => item.task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {futureFlat.map(({ task, level, hasChildren, expanded, completedCount, totalCount }) => (
+                      <SortableTaskItem
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onUpdateQuadrant={handleUpdateQuadrant}
+                        onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
+                        showMeta={true}
+                        compact={true}
                         selected={selectedTaskId === task.id}
                         level={level}
                         hasChildren={hasChildren}
@@ -491,11 +541,7 @@ export function InboxPage() {
             )}
 
             {completedFlat.length > 0 && (
-              <TaskGroup
-                title="已完成"
-                count={completedTopTasks.length}
-                defaultOpened={true}
-              >
+              <TaskGroup title="已完成" count={completedTopTasks.length} defaultOpened={true}>
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -512,9 +558,10 @@ export function InboxPage() {
                         onToggle={handleToggle}
                         onDelete={handleDelete}
                         onUpdateQuadrant={handleUpdateQuadrant}
-                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         onClick={handleTaskClick}
+                        onPatched={(t) => setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x)))}
                         showMeta={true}
+                        compact={true}
                         selected={selectedTaskId === task.id}
                         level={level}
                         hasChildren={hasChildren}
@@ -532,8 +579,6 @@ export function InboxPage() {
           </Stack>
         )}
       </Stack>
-
-      {/* Right panel is global; no drawer here */}
     </div>
   );
 }
