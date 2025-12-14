@@ -130,6 +130,9 @@ function MonthGrid({ currentMonth, tasks }: MonthGridProps) {
     if (t.status === 'done') {
       return { bg: '#F8F9FA', text: '#ADB5BD', border: '#E9ECEF' }; // 极淡灰
     }
+    if (t.status === 'abandoned') {
+      return { bg: '#FFF0F6', text: '#A61E4D', border: 'transparent' }; // 柔和粉紫（放弃）
+    }
     switch (t.quadrant) {
       case 'IU': // 重要紧急 - 柔和红
         return { bg: '#FFE3E3', text: '#C92A2A', border: 'transparent' };
@@ -244,7 +247,7 @@ function MonthGrid({ currentMonth, tasks }: MonthGridProps) {
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      opacity: t.status === 'done' ? 0.7 : 1,
+                      opacity: t.status === 'done' ? 0.7 : t.status === 'abandoned' ? 0.75 : 1,
                       userSelect: 'none',
                       cursor: 'default'
                     }}
@@ -272,6 +275,7 @@ function WeekColumns({ date, tasks }: WeekColumnsProps) {
 
   const quadColor = (t: Task) => {
     if (t.status === 'done') return { bg: '#F8F9FA', text: '#ADB5BD', border: '#E9ECEF' };
+    if (t.status === 'abandoned') return { bg: '#FFF0F6', text: '#A61E4D', border: 'transparent' };
     switch (t.quadrant) {
       case 'IU': return { bg: '#FFE3E3', text: '#C92A2A', border: 'transparent' };
       case 'IN': return { bg: '#FFF3BF', text: '#D9480F', border: 'transparent' };
@@ -353,7 +357,7 @@ function WeekColumns({ date, tasks }: WeekColumnsProps) {
                     const col = quadColor(t);
                     return (
                       <div key={t.id}
-                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, userSelect: 'none', cursor: 'default' }}
+                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, userSelect: 'none', cursor: 'default', opacity: t.status === 'done' ? 0.7 : t.status === 'abandoned' ? 0.75 : 1 }}
                       >{t.title}</div>
                     );
                   })}
@@ -376,7 +380,7 @@ function WeekColumns({ date, tasks }: WeekColumnsProps) {
                     const col = quadColor(t);
                     return (
                       <div key={t.id}
-                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 12, userSelect: 'none', cursor: 'default' }}
+                           style={{ background: col.bg, color: col.text, border: `1px solid ${col.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 12, userSelect: 'none', cursor: 'default', opacity: t.status === 'done' ? 0.7 : t.status === 'abandoned' ? 0.75 : 1 }}
                       >
                         <div style={{ fontWeight: 600 }}>{t.title}</div>
                         <div style={{ color: '#868e96', fontSize: 12 }}>
