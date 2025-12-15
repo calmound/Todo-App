@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="modernDropShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="25" result="blur"/>
+      <feOffset in="blur" dx="0" dy="20" result="offsetBlur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.25"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="offsetBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <linearGradient id="modernBgGradient" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/> <stop offset="1" stop-color="#1E40AF"/> </linearGradient>
+
+    <linearGradient id="modernTickGradient" x1="280" y1="300" x2="820" y2="740" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFED4A"/> <stop offset="1" stop-color="#FF5722"/> </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#modernBgGradient)"/>
+
+  <g filter="url(#modernDropShadow)">
+      <path d="M425 745C405 765 375 765 355 745L215 605C195 585 195 555 215 535C235 515 265 515 285 535L390 640L735 295C755 275 785 275 805 295C825 315 825 345 805 365L425 745Z" fill="url(#modernTickGradient)"/>
+    
+    <path d="M425 720L300 595L320 575L425 680L770 335L790 355L425 720Z" fill="white" fill-opacity="0.15"/>
+  </g>
+  
+  </svg>

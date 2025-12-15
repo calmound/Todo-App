@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMantineTheme } from '@mantine/core';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { IconCalendar, IconListCheck, IconDownload, IconChartBar, IconArchiveOff, IconTag } from '@tabler/icons-react';
+import { IconCalendar, IconListCheck, IconDownload, IconChartBar, IconArchiveOff, IconTag, IconSettings, IconRefresh } from '@tabler/icons-react';
 import { RightPanelProvider, useRightPanel } from '../components/RightPanel/RightPanelContext';
 import { TaskDetailPanel } from '../components/TaskDetail/TaskDetailPanel';
 import { tasksApi } from '../api/tasks';
@@ -22,6 +22,7 @@ function LayoutInner() {
     { path: '/categories', label: '分类', icon: IconTag },
     { path: '/analysis', label: '分析', icon: IconChartBar },
     { path: '/abandoned', label: '已放弃', icon: IconArchiveOff },
+    { path: '/settings', label: '设置', icon: IconSettings },
   ];
 
   // Close right panel when route changes (switching pages)
@@ -81,13 +82,20 @@ function LayoutInner() {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>秒办</div>
+            <div style={{ fontWeight: 700, fontSize: '1.2rem' }}>知行</div>
           </Group>
-          <Tooltip label="导出数据备份" withArrow withinPortal zIndex={40000}>
-            <ActionIcon variant="subtle" color="gray" size="lg" onClick={handleExport}>
-              <IconDownload size={20} />
-            </ActionIcon>
-          </Tooltip>
+          <Group gap={6}>
+            <Tooltip label="刷新" withArrow withinPortal zIndex={40000}>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => window.location.reload()}>
+                <IconRefresh size={20} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="导出数据备份" withArrow withinPortal zIndex={40000}>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={handleExport}>
+                <IconDownload size={20} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
       </AppShell.Header>
 

@@ -10,7 +10,9 @@ const app: Express = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+// Tauri WebView may send `Origin: tauri://localhost` or `Origin: null` (custom schemes / file-like origins).
+// Using `origin: true` reflects the request origin instead of `*`, which avoids stricter CORS checks in some WebViews.
+app.use(cors({ origin: true, optionsSuccessStatus: 204 }));
 app.use(express.json());
 
 // API Routes

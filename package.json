@@ -6,6 +6,8 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ..",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
@@ -29,6 +31,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6",
     "concurrently": "^9.1.0"
   },
   "dependencies": {

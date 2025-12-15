@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "知行",
+  "version": "0.1.0",
+  "identifier": "com.todo.project",
+  "build": {
+    "beforeDevCommand": "node scripts/gen-tauri-icon.mjs && TAURI=true VITE_API_BASE_URL=http://127.0.0.1:3000/api npm --prefix frontend run dev -- --port 5173 --strictPort",
+    "beforeBuildCommand": "node scripts/gen-tauri-icon.mjs && TAURI=true VITE_API_BASE_URL=http://127.0.0.1:3000/api npm --prefix frontend run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "知行",
+        "width": 1200,
+        "height": 800,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.icns", "icons/icon.ico", "icons/icon.png"],
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "minimumSystemVersion": "12.0"
+    }
+  }
+}

@@ -46,3 +46,30 @@ backend/prisma/migrations/
 # OS
 .DS_Store
 Thumbs.db
+
+# ===== Rust / Cargo =====
+/target/
+**/*.rs.bk
+
+# Cargo.lock
+# - binary 项目：建议提交
+# - library 项目：可忽略（下面解释）
+# Cargo.lock
+
+# ===== Tauri =====
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/webview-dist/
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===== Editor =====
+.vscode/
+.idea/
+*.swp
+
+# ===== Logs =====
+*.log
