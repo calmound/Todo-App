@@ -19,12 +19,15 @@
       <stop offset="0" stop-color="#FFED4A"/> <stop offset="1" stop-color="#FF5722"/> </linearGradient>
   </defs>
 
-  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#modernBgGradient)"/>
+  <!-- Add transparent padding so the icon aligns visually with other macOS app icons in Launchpad. -->
+  <g transform="translate(72 72) scale(0.86)">
+    <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#modernBgGradient)"/>
 
-  <g filter="url(#modernDropShadow)">
+    <g filter="url(#modernDropShadow)">
       <path d="M425 745C405 765 375 765 355 745L215 605C195 585 195 555 215 535C235 515 265 515 285 535L390 640L735 295C755 275 785 275 805 295C825 315 825 345 805 365L425 745Z" fill="url(#modernTickGradient)"/>
-    
-    <path d="M425 720L300 595L320 575L425 680L770 335L790 355L425 720Z" fill="white" fill-opacity="0.15"/>
+
+      <path d="M425 720L300 595L320 575L425 680L770 335L790 355L425 720Z" fill="white" fill-opacity="0.15"/>
+    </g>
   </g>
   
   </svg>

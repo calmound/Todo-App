@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'todo.apiBaseUrl';
 
-function isTauriRuntime() {
+export function isTauriRuntime() {
   return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 

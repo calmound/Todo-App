@@ -13,6 +13,8 @@ const port = process.env.PORT || 3000;
 // Tauri WebView may send `Origin: tauri://localhost` or `Origin: null` (custom schemes / file-like origins).
 // Using `origin: true` reflects the request origin instead of `*`, which avoids stricter CORS checks in some WebViews.
 app.use(cors({ origin: true, optionsSuccessStatus: 204 }));
+// Allow simple text/plain requests (used by Tauri to avoid CORS preflight for writes).
+app.use(express.text({ type: ['text/plain'] }));
 app.use(express.json());
 
 // API Routes

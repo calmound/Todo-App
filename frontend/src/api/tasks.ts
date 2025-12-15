@@ -1,5 +1,12 @@
 import type { Task, CreateTaskInput, UpdateTaskInput } from '../types/task';
-import { apiUrl } from './baseUrl';
+import { apiUrl, isTauriRuntime } from './baseUrl';
+
+function jsonAsTextBody(input: unknown) {
+  return {
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(input ?? {}),
+  } as const;
+}
 
 export const tasksApi = {
   // Get tasks by date range
@@ -32,10 +39,12 @@ export const tasksApi = {
 
   // Create task
   createTask: async (input: CreateTaskInput): Promise<Task> => {
-    const response = await fetch(apiUrl('/tasks'), {
+    const endpoint = isTauriRuntime() ? '/tasks/create' : '/tasks';
+    const response = await fetch(apiUrl(endpoint), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      ...(isTauriRuntime()
+        ? jsonAsTextBody(input)
+        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }),
     });
     if (!response.ok) throw new Error('Failed to create task');
     return response.json();
@@ -43,10 +52,12 @@ export const tasksApi = {
 
   // Update task (full)
   updateTask: async (id: number, input: CreateTaskInput): Promise<Task> => {
-    const response = await fetch(apiUrl(`/tasks/${id}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+    const endpoint = isTauriRuntime() ? `/tasks/${id}/update` : `/tasks/${id}`;
+    const response = await fetch(apiUrl(endpoint), {
+      method: isTauriRuntime() ? 'POST' : 'PUT',
+      ...(isTauriRuntime()
+        ? jsonAsTextBody(input)
+        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }),
     });
     if (!response.ok) throw new Error('Failed to update task');
     return response.json();
@@ -54,10 +65,12 @@ export const tasksApi = {
 
   // Patch task (partial)
   patchTask: async (id: number, input: UpdateTaskInput): Promise<Task> => {
-    const response = await fetch(apiUrl(`/tasks/${id}`), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+    const endpoint = isTauriRuntime() ? `/tasks/${id}/patch` : `/tasks/${id}`;
+    const response = await fetch(apiUrl(endpoint), {
+      method: isTauriRuntime() ? 'POST' : 'PATCH',
+      ...(isTauriRuntime()
+        ? jsonAsTextBody(input)
+        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }),
     });
     if (!response.ok) throw new Error('Failed to patch task');
     return response.json();
@@ -65,8 +78,9 @@ export const tasksApi = {
 
   // Delete task
   deleteTask: async (id: number): Promise<void> => {
-    const response = await fetch(apiUrl(`/tasks/${id}`), {
-      method: 'DELETE',
+    const endpoint = isTauriRuntime() ? `/tasks/${id}/delete` : `/tasks/${id}`;
+    const response = await fetch(apiUrl(endpoint), {
+      method: isTauriRuntime() ? 'POST' : 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete task');
   },

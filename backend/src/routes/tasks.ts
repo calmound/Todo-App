@@ -4,6 +4,17 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
+function parseBody<T>(body: unknown): T {
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      return {} as T;
+    }
+  }
+  return (body ?? {}) as T;
+}
+
 function parseCategories<T extends { categories?: string | null }>(row: T) {
   if (!row) return row as any;
   const c = (row as any).categories;
@@ -125,7 +136,39 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new task
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } = req.body;
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } =
+      parseBody<any>(req.body);
+
+    const task = await prisma.task.create({
+      data: {
+        title: title || '',
+        description: description || null,
+        date: date || null,
+        rangeStart: rangeStart || null,
+        rangeEnd: rangeEnd || null,
+        allDay: allDay || false,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        status: status || 'pending',
+        quadrant: quadrant || 'IN',
+        parentId: parentId || null,
+        order: order || 0,
+        categories: Array.isArray(categories) ? JSON.stringify(categories) : categories ?? null,
+      },
+    });
+
+    res.status(201).json(parseCategories(task));
+  } catch (error) {
+    console.error('创建任务出错:', error);
+    res.status(500).json({ error: '创建任务失败' });
+  }
+});
+
+// Create task (alias for clients that only use text/plain + POST)
+router.post('/create', async (req: Request, res: Response) => {
+  try {
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } =
+      parseBody<any>(req.body);
 
     const task = await prisma.task.create({
       data: {
@@ -156,7 +199,45 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } = req.body;
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } =
+      parseBody<any>(req.body);
+
+    const task = await prisma.task.update({
+      where: { id: parseInt(id) },
+      data: {
+        title: title || '',
+        description: description || null,
+        date: date || null,
+        rangeStart: rangeStart || null,
+        rangeEnd: rangeEnd || null,
+        allDay: allDay || false,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        status: status || 'pending',
+        quadrant: quadrant || 'IN',
+        parentId: parentId !== undefined ? parentId : undefined,
+        order: order !== undefined ? order : undefined,
+        categories: Array.isArray(categories)
+          ? JSON.stringify(categories)
+          : categories === null
+          ? null
+          : undefined,
+      },
+    });
+
+    res.json(parseCategories(task));
+  } catch (error) {
+    console.error('更新任务出错:', error);
+    res.status(500).json({ error: '更新任务失败' });
+  }
+});
+
+// Update task (full) - POST alias to avoid preflight in some clients (e.g. Tauri WebView)
+router.post('/:id/update', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { title, description, date, rangeStart, rangeEnd, allDay, startTime, endTime, status, quadrant, parentId, order, categories } =
+      parseBody<any>(req.body);
 
     const task = await prisma.task.update({
       where: { id: parseInt(id) },
@@ -192,7 +273,25 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = stringifyCategories({ ...req.body });
+    const updateData = stringifyCategories({ ...parseBody<any>(req.body) });
+
+    const task = await prisma.task.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+    });
+
+    res.json(parseCategories(task));
+  } catch (error) {
+    console.error('部分更新任务出错:', error);
+    res.status(500).json({ error: '部分更新任务失败' });
+  }
+});
+
+// Partial update task - POST alias to avoid preflight in some clients (e.g. Tauri WebView)
+router.post('/:id/patch', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = stringifyCategories({ ...parseBody<any>(req.body) });
 
     const task = await prisma.task.update({
       where: { id: parseInt(id) },
@@ -208,6 +307,22 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
 // Delete task
 router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.task.delete({
+      where: { id: parseInt(id) },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('删除任务出错:', error);
+    res.status(500).json({ error: '删除任务失败' });
+  }
+});
+
+// Delete task - POST alias to avoid preflight in some clients (e.g. Tauri WebView)
+router.post('/:id/delete', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
